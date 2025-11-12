@@ -4,7 +4,9 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Letter Tracker</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
     <style>
       .row-completed { opacity: 0.6; }
       .tab-badge { font-weight: 600; }
@@ -15,131 +17,89 @@
       .total-label { font-size: .9rem; color: #666; }
     </style>
   </head>
+
   <body class="bg-light">
+
+    <!-- SINGLE NAVBAR (fixed) -->
     <nav class="navbar navbar-light bg-white border-bottom mb-3 px-3">
-  <a class="navbar-brand fw-semibold d-flex align-items-center gap-2" href="{{ url_for('index') }}">
-    <span class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center"
-          style="width:28px;height:28px;font-size:0.9rem;">
-      ✉️
-    </span>
-    <span>Letter Tracker</span>
-  </a>
-  <div class="ms-auto d-flex align-items-center gap-2">
-    {% if current_user.is_authenticated %}
-      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('profile') }}">Profile</a>
-      <span class="text-muted small">Hi, {{ current_user.name }}</span>
-      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('logout') }}">Logout</a>
-    {% else %}
-      <a class="btn btn-sm btn-outline-primary" href="{{ url_for('login') }}">Login</a>
-      <a class="btn btn-sm btn-primary" href="{{ url_for('register') }}">Register</a>
-    {% endif %}
-  </div>
-</nav>
+      <div class="container-fluid d-flex justify-content-between align-items-center">
 
-<div class="container">
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <div class="mt-2">
-        {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-            {{ message }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        <!-- LEFT SIDE: Logo + Title -->
+        <a class="navbar-brand fw-semibold d-flex align-items-center" href="{{ url_for('index') }}">
+          <div style="
+              width:34px;
+              height:34px;
+              overflow:hidden;
+              border-radius:6px;
+              display:flex;
+              align-items:center;
+              justify-content:center;
+          ">
+            <img src="{{ url_for('static', filename='logo.png') }}"
+                 alt="Logo"
+                 style="height:100%; width:auto;">
           </div>
-        {% endfor %}
-      </div>
-    {% endif %}
-  {% endwith %}
-</div>
+          <span class="ms-2 fs-5">Letter Tracker</span>
+        </a>
 
-    <main class="container py-4">
+        <!-- RIGHT SIDE -->
+        <div class="d-flex align-items-center gap-2">
+          {% if current_user.is_authenticated %}
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('profile') }}">Profile</a>
+            <span class="text-muted small">Hi, {{ current_user.name }}</span>
+            <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('logout') }}">Logout</a>
+          {% else %}
+            <a class="btn btn-sm btn-outline-primary" href="{{ url_for('login') }}">Login</a>
+            <a class="btn btn-sm btn-primary" href="{{ url_for('register') }}">Register</a>
+          {% endif %}
+        </div>
+
+      </div>
+    </nav>
+    <!-- END NAVBAR -->
+
+    <!-- Flash messages -->
+    <div class="container">
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-          <div class="mb-3">
+          <div class="mt-2">
             {% for category, message in messages %}
-              <div class="alert alert-{{ category }} mb-2" role="alert">{{ message }}</div>
+              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              </div>
             {% endfor %}
           </div>
         {% endif %}
       {% endwith %}
+    </div>
 
+    <!-- Page Content -->
+    <main class="container py-4">
       {% block content %}{% endblock %}
     </main>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-      // Remember last selected tab
-      document.addEventListener('DOMContentLoaded', function() {
-        const key = 'letterTabs.active';
-        const stored = localStorage.getItem(key);
-        if (stored) {
-          const triggerEl = document.querySelector('[data-bs-target=\"' + stored + '\"]');
-          if (triggerEl) {
-            const tab = new bootstrap.Tab(triggerEl);
-            tab.show();
-          }
-        }
-        const tabEls = document.querySelectorAll('#letterTabs button[data-bs-toggle=\"tab\"]');
-        tabEls.forEach(btn => {
-          btn.addEventListener('shown.bs.tab', function (e) {
-            const target = e.target.getAttribute('data-bs-target');
-            localStorage.setItem(key, target);
-          });
-        });
-      });
 
-      // Expand/Collapse per tab (default show 4), with totals
-      document.addEventListener('DOMContentLoaded', function() {
-        const LIMIT = 4;
-        document.querySelectorAll('[data-table-container]').forEach(container => {
-          const tbody = container.querySelector('tbody');
-          const rows = Array.from(tbody.querySelectorAll('tr.data-row'));
-          const total = rows.length;
-          const totalSpan = container.querySelector('[data-total]');
-          const shownSpan = container.querySelector('[data-shown]');
-          const btn = container.querySelector('[data-toggle-list]');
-          const storeKey = 'expand.' + container.id;
-          function apply(collapsed) {
-            let shown = total;
-            if (collapsed && total > LIMIT) {
-              rows.forEach((r, i) => { r.style.display = (i < LIMIT) ? '' : 'none'; });
-              shown = Math.min(LIMIT, total);
-              btn.textContent = 'Show All';
+    <!-- Password toggle -->
+    <script>
+      document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('[data-toggle-password]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            const targetId = btn.getAttribute('data-toggle-password');
+            const input = document.getElementById(targetId);
+            if (!input) return;
+            if (input.type === 'password') {
+              input.type = 'text';
+              btn.textContent = 'Hide';
             } else {
-              rows.forEach(r => r.style.display = '');
-              shown = total;
-              btn.textContent = 'Show Less';
+              input.type = 'password';
+              btn.textContent = 'Show';
             }
-            if (total <= LIMIT) { btn.style.display = 'none'; }
-            totalSpan.textContent = total;
-            shownSpan.textContent = shown;
-          }
-          let collapsed = (localStorage.getItem(storeKey) !== 'expanded');
-          apply(collapsed);
-          btn.addEventListener('click', () => {
-            collapsed = !collapsed;
-            localStorage.setItem(storeKey, collapsed ? 'collapsed' : 'expanded');
-            apply(collapsed);
           });
         });
       });
     </script>
-  <script>
-  document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('[data-toggle-password]').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        const targetId = btn.getAttribute('data-toggle-password');
-        const input = document.getElementById(targetId);
-        if (!input) return;
-        if (input.type === 'password') {
-          input.type = 'text';
-          btn.textContent = 'Hide';
-        } else {
-          input.type = 'password';
-          btn.textContent = 'Show';
-        }
-      });
-    });
-  });
-</script>
+
   </body>
 </html>
