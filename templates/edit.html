@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <strong>Edit Letter #{{ letter.id }}</strong>
+    <a href="/" class="btn btn-sm btn-outline-secondary">Back</a>
+  </div>
+  <div class="card-body">
+    <form method="post" action="{{ url_for('update', letter_id=letter.id) }}" class="row g-3">
+      <div class="col-md-2">
+        <label class="form-label">Type *</label>
+        <select class="form-select" name="letter_type" required>
+          <option value="Sending" {% if letter.letter_type=='Sending' %}selected{% endif %}>Sending</option>
+          <option value="Receiving" {% if letter.letter_type=='Receiving' %}selected{% endif %}>Receiving</option>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Nickname</label>
+        <input type="text" class="form-control" name="nickname" value="{{ letter.nickname or '' }}">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Name *</label>
+        <input type="text" class="form-control" name="name" value="{{ letter.name }}" required>
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">To Country *</label>
+        <select class="form-select" name="to_country" required>
+          {% for c in COUNTRIES %}
+          <option value="{{ c }}" {% if c==letter.to_country %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">From</label>
+        <select class="form-select" name="from_country">
+          {% for c in COUNTRIES %}
+          <option value="{{ c }}" {% if c==letter.from_country %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label">Sent Date</label>
+        <input type="date" class="form-control" name="sent_date" value="{{ letter.sent_date and letter.sent_date.strftime('%Y-%m-%d') or '' }}">
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Received Date</label>
+        <input type="date" class="form-control" name="received_date" value="{{ letter.received_date and letter.received_date.strftime('%Y-%m-%d') or '' }}">
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label">Tracking</label>
+        <input type="text" class="form-control" name="tracking" value="{{ letter.tracking or '' }}">
+      </div>
+
+      <div class="col-12 d-flex gap-2">
+        <button class="btn btn-primary">Save</button>
+        <a href="/" class="btn btn-outline-secondary">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

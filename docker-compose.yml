@@ -1,0 +1,13 @@
+services:
+  web:
+    build: .
+    container_name: letter-tracker
+    ports:
+      - "5050:5000"
+    environment:
+      - SECRET_KEY=change-me
+      - TZ=Asia/Qatar
+    volumes:
+      - ./data:/app/data
+      - ./:/app
+    restart: unless-stopped

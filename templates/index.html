@@ -1,0 +1,317 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <form class="row gy-2 gx-2 align-items-end" method="get" action="/">
+      <div class="col-sm-8 col-md-6 col-lg-4">
+        <label class="form-label">Search</label>
+        <input type="text" class="form-control" placeholder="nickname, name, country, tracking" name="q" value="{{ q }}" />
+      </div>
+      <div class="col-auto">
+        <button class="btn btn-primary">Filter</button>
+      </div>
+      <div class="col-auto">
+        <a class="btn btn-outline-secondary" href="/">Reset</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-header bg-white"><strong>Add Letter</strong></div>
+  <div class="card-body">
+    <form method="post" action="/add" class="row g-3" enctype="multipart/form-data">
+      <div class="col-md-2">
+        <label class="form-label">Type *</label>
+        <select class="form-select" name="letter_type" required>
+          <option value="Sending">Sending</option>
+          <option value="Receiving">Receiving</option>
+        </select>
+      </div>
+      <div class="col-md-3"><label class="form-label">Nickname</label>
+        <input type="text" class="form-control" name="nickname">
+      </div>
+      <div class="col-md-4"><label class="form-label">Name *</label>
+        <input type="text" class="form-control" name="name" required>
+      </div>
+      <div class="col-md-3"><label class="form-label">To Country *</label>
+        <select class="form-select" name="to_country" required>
+          {% for c in COUNTRIES %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3"><label class="form-label">From</label>
+        <select class="form-select" name="from_country">
+          {% for c in COUNTRIES %}
+          <option value="{{ c }}" {% if c == 'Qatar' %}selected{% endif %}>{{ c }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3"><label class="form-label">Sent Date</label>
+        <input type="date" class="form-control" name="sent_date">
+      </div>
+      <div class="col-md-3"><label class="form-label">Received Date</label>
+        <input type="date" class="form-control" name="received_date">
+      </div>
+      <div class="col-md-3"><label class="form-label">Tracking</label>
+        <input type="text" class="form-control" name="tracking" placeholder="RR... or Normal">
+      </div>
+      <div class="col-md-4"><label class="form-label">Attachment *</label>
+        <input type="file" class="form-control" name="attachment" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" required>
+        <div class="form-text">Allowed: PDF, JPG, PNG, DOC, DOCX • Max {{ 10 }} MB</div>
+      </div>
+      <div class="col-md-2 d-grid">
+        <label class="form-label">&nbsp;</label>
+        <button class="btn btn-success">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Tabs -->
+<ul class="nav nav-tabs mt-4" id="letterTabs" role="tablist">
+  <li class="nav-item">
+    <button class="nav-link active" id="tab-all" data-bs-toggle="tab" data-bs-target="#all" type="button">
+      All Letters <span class="badge text-bg-secondary tab-badge">{{ counts.all }}</span>
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" id="tab-sending" data-bs-toggle="tab" data-bs-target="#sending" type="button">
+      Sending <span class="badge text-bg-secondary tab-badge">{{ counts.sending }}</span>
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" id="tab-receiving" data-bs-toggle="tab" data-bs-target="#receiving" type="button">
+      Receiving <span class="badge text-bg-secondary tab-badge">{{ counts.receiving }}</span>
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" id="tab-completed" data-bs-toggle="tab" data-bs-target="#completed" type="button">
+      Completed <span class="badge text-bg-secondary tab-badge">{{ counts.completed }}</span>
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" id="tab-draft" data-bs-toggle="tab" data-bs-target="#draft" type="button">
+      Draft <span class="badge text-bg-secondary tab-badge">{{ counts.draft }}</span>
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content mt-3">
+
+<!-- ALL -->
+<div class="tab-pane fade show active" id="all">
+  <div class="card shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="sortable" data-table="all-table" data-column="0"># <span class="sort-indicator">⇅</span></th><th>Type</th><th>Nickname</th><th>Name</th><th>To</th><th>From</th>
+            <th class="sortable" data-table="all-table" data-column="6" style="cursor:pointer;">Sent <span class="sort-indicator">⇅</span></th>
+            <th class="sortable" data-table="all-table" data-column="7" style="cursor:pointer;">Received <span class="sort-indicator">⇅</span></th>
+            <th class="sortable" data-table="all-table" data-column="8">Status <span class="sort-indicator">⇅</span></th><th>Tracking</th><th style="text-align:center;">📎</th><th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="all-table">
+          {% for l in letters %}
+          <tr {% if loop.index > 5 %}class="extra-row d-none"{% endif %}>
+            <td>{{ l.id }}</td><td>{{ l.letter_type }}</td><td>{{ l.nickname or '' }}</td><td>{{ l.name }}</td>
+            <td>{{ l.to_country }}</td><td>{{ l.from_country }}</td>
+            <td>{{ l.sent_date and l.sent_date.strftime('%d/%m/%Y') or '' }}</td>
+            <td>{{ l.received_date and l.received_date.strftime('%d/%m/%Y') or '' }}</td>
+            <td>
+              {% if l.is_completed %}<span class="badge bg-success">Completed</span>
+              {% elif l.status == 'Draft' %}<span class="badge bg-secondary">Draft</span>
+              {% else %}<span class="badge bg-info text-dark">Active</span>{% endif %}
+            </td>
+            <td>{% if l.tracking %}<a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>{% else %}-{% endif %}</td>
+            <td class="text-center">{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}" target="_blank">📎</a>{% else %}-{% endif %}</td>
+            <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit', letter_id=l.id) }}">Edit</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% if letters|length > 5 %}
+    <div class="card-footer text-center"><button class="btn btn-sm btn-outline-secondary" id="toggle-all">Show All</button></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- SENDING -->
+<div class="tab-pane fade" id="sending">
+  <div class="table-responsive">
+    <table class="table table-striped mb-0">
+      <thead class="table-light">
+        <tr>
+          <th class="sortable" data-table="all-table" data-column="0"># <span class="sort-indicator">⇅</span></th><th>Name</th><th>To</th><th>From</th>
+          <th class="sortable" data-table="sending-table" data-column="4" style="cursor:pointer;">Sent <span class="sort-indicator">⇅</span></th>
+          <th>Since</th><th>Tracking</th><th>📎</th>
+        </tr>
+      </thead>
+      <tbody id="sending-table">
+        {% for l in sending_letters %}
+        <tr {% if loop.index > 5 %}class="extra-row d-none"{% endif %}>
+          <td>{{ l.id }}</td><td>{{ l.name }}</td><td>{{ l.to_country }}</td><td>{{ l.from_country }}</td>
+          <td>{{ l.sent_date and l.sent_date.strftime('%d/%m/%Y') or '' }}</td>
+          <td>{% if l.sent_date %}{{ (now().date() - l.sent_date).days }}{% endif %}</td>
+          <td>{% if l.tracking %}<a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>{% endif %}</td>
+          <td>{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if sending_letters|length > 5 %}
+  <div class="card-footer text-center"><button class="btn btn-sm btn-outline-secondary" id="toggle-sending">Show All</button></div>
+  {% endif %}
+</div>
+
+<!-- RECEIVING -->
+<div class="tab-pane fade" id="receiving">
+  <div class="table-responsive">
+    <table class="table table-striped mb-0">
+      <thead class="table-light">
+        <tr>
+          <th class="sortable" data-table="all-table" data-column="0"># <span class="sort-indicator">⇅</span></th><th>Name</th><th>To</th><th>From</th>
+          <th class="sortable" data-table="receiving-table" data-column="4" style="cursor:pointer;">Received <span class="sort-indicator">⇅</span></th>
+          <th>Since</th><th class="sortable" data-table="all-table" data-column="8">Status <span class="sort-indicator">⇅</span></th><th>Tracking</th><th>📎</th>
+        </tr>
+      </thead>
+      <tbody id="receiving-table">
+        {% for l in receiving_letters %}
+        <tr {% if loop.index > 5 %}class="extra-row d-none"{% endif %}>
+          <td>{{ l.id }}</td><td>{{ l.name }}</td><td>{{ l.to_country }}</td><td>{{ l.from_country }}</td>
+          <td>{{ l.received_date and l.received_date.strftime('%d/%m/%Y') or '' }}</td>
+          <td>{% if l.sent_date %}{{ (now().date() - l.sent_date).days }}{% endif %}</td>
+          <td>{% if l.status == 'Draft' %}<span class="badge bg-secondary">Draft</span>{% else %}<span class="badge bg-info text-dark">Active</span>{% endif %}</td>
+          <td>{% if l.tracking %}<a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>{% endif %}</td>
+          <td>{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if receiving_letters|length > 5 %}
+  <div class="card-footer text-center"><button class="btn btn-sm btn-outline-secondary" id="toggle-receiving">Show All</button></div>
+  {% endif %}
+</div>
+
+<!-- COMPLETED -->
+<div class="tab-pane fade" id="completed">
+  <div class="table-responsive">
+    <table class="table table-striped mb-0">
+      <thead class="table-light">
+        <tr>
+          <th class="sortable" data-table="all-table" data-column="0"># <span class="sort-indicator">⇅</span></th><th>Type</th><th>Name</th><th>To</th><th>From</th>
+          <th class="sortable" data-table="completed-table" data-column="6" style="cursor:pointer;">Sent <span class="sort-indicator">⇅</span></th>
+          <th class="sortable" data-table="completed-table" data-column="7" style="cursor:pointer;">Received <span class="sort-indicator">⇅</span></th>
+          <th>Tracking</th><th>📎</th>
+        </tr>
+      </thead>
+      <tbody id="completed-table">
+        {% for l in completed_letters %}
+        <tr {% if loop.index > 5 %}class="extra-row d-none"{% endif %}>
+          <td>{{ l.id }}</td><td>{{ l.letter_type }}</td><td>{{ l.name }}</td><td>{{ l.to_country }}</td><td>{{ l.from_country }}</td>
+          <td>{{ l.sent_date and l.sent_date.strftime('%d/%m/%Y') or '' }}</td>
+          <td>{{ l.received_date and l.received_date.strftime('%d/%m/%Y') or '' }}</td>
+          <td>{% if l.tracking %}<a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>{% endif %}</td>
+          <td>{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if completed_letters|length > 5 %}
+  <div class="card-footer text-center"><button class="btn btn-sm btn-outline-secondary" id="toggle-completed">Show All</button></div>
+  {% endif %}
+</div>
+
+<!-- DRAFT -->
+<div class="tab-pane fade" id="draft">
+  <div class="table-responsive">
+    <table class="table table-striped mb-0">
+      <thead class="table-light">
+        <tr>
+          <th class="sortable" data-table="all-table" data-column="0"># <span class="sort-indicator">⇅</span></th><th>Type</th><th>Name</th><th>To</th><th>From</th><th>Sent</th><th>Tracking</th><th>📎</th>
+        </tr>
+      </thead>
+      <tbody id="draft-table">
+        {% for l in draft_letters %}
+        <tr {% if loop.index > 5 %}class="extra-row d-none"{% endif %}>
+          <td>{{ l.id }}</td><td>{{ l.letter_type }}</td><td>{{ l.name }}</td><td>{{ l.to_country }}</td><td>{{ l.from_country }}</td>
+          <td>{{ l.sent_date and l.sent_date.strftime('%d/%m/%Y') or '' }}</td>
+          <td>{% if l.tracking %}<a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>{% endif %}</td>
+          <td>{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>{% endif %}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if draft_letters|length > 5 %}
+  <div class="card-footer text-center"><button class="btn btn-sm btn-outline-secondary" id="toggle-draft">Show All</button></div>
+  {% endif %}
+</div>
+
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  // Parse date safely
+  function parseDate(str){
+    if(!str) return new Date(0);
+    const p = str.split("/");
+    return new Date(p[2], p[1]-1, p[0]);
+  }
+
+  // Detect numeric or date content
+  function parseValue(text) {
+    text = text.trim();
+    if (!text) return "";
+    // Try date format
+    const dateMatch = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (dateMatch) return parseDate(text);
+    // Try number
+    const num = parseFloat(text.replace(/[^\d.-]/g, ""));
+    if (!isNaN(num)) return num;
+    return text.toLowerCase(); // default string
+  }
+
+  // Sorting logic
+  document.querySelectorAll("th.sortable").forEach(th => {
+    th.addEventListener("click", () => {
+      const tableId = th.dataset.table;
+      const col = parseInt(th.dataset.column);
+      const tbody = document.getElementById(tableId);
+      if (!tbody) return;
+      const rows = Array.from(tbody.querySelectorAll("tr"));
+      const order = th.dataset.order === "asc" ? "desc" : "asc";
+      th.dataset.order = order;
+
+      rows.sort((a, b) => {
+        const aVal = parseValue(a.children[col]?.textContent || "");
+        const bVal = parseValue(b.children[col]?.textContent || "");
+        if (aVal instanceof Date && bVal instanceof Date)
+          return order === "asc" ? aVal - bVal : bVal - aVal;
+        if (typeof aVal === "number" && typeof bVal === "number")
+          return order === "asc" ? aVal - bVal : bVal - aVal;
+        return order === "asc" ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+      });
+
+      rows.forEach(r => tbody.appendChild(r));
+      document.querySelectorAll(".sort-indicator").forEach(i => i.textContent = "⇅");
+      th.querySelector(".sort-indicator").textContent = order === "asc" ? "↑" : "↓";
+    });
+  });
+
+  // Show/Hide Rows
+  const toggleSection = (btnId, tableId) => {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(`#${tableId} .extra-row`).forEach(r => r.classList.toggle("d-none"));
+      btn.textContent = btn.textContent === "Show All" ? "Show Less" : "Show All";
+    });
+  };
+  toggleSection("toggle-all", "all-table");
+  toggleSection("toggle-sending", "sending-table");
+  toggleSection("toggle-receiving", "receiving-table");
+  toggleSection("toggle-completed", "completed-table");
+  toggleSection("toggle-draft", "draft-table");
+});
+</script>
+{% endblock %}

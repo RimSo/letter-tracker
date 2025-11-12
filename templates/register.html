@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+  <div class="col-md-6 col-lg-5">
+    <div class="text-center mb-3">
+      <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center"
+           style="width:56px;height:56px;font-size:1.5rem;">
+        ✉️
+      </div>
+      <div class="mt-2 fw-semibold">Letter Tracker</div>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-header bg-white">
+        <strong>Create Account</strong>
+      </div>
+      <div class="card-body">
+        <form method="post" action="{{ url_for('register') }}">
+          <div class="mb-3">
+            <label class="form-label">Full Name</label>
+            <input name="name" type="text" class="form-control" required autofocus
+                   value="{{ name or '' }}">
+            {% if errors.name %}
+              <div class="text-danger small mt-1">{{ errors.name }}</div>
+            {% endif %}
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input name="email" type="email" class="form-control" required
+                   value="{{ email or '' }}">
+            {% if errors.email %}
+              <div class="text-danger small mt-1">{{ errors.email }}</div>
+            {% endif %}
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Password</label>
+              <div class="input-group">
+                <input id="reg-password" name="password" type="password" class="form-control" required minlength="6">
+                <button class="btn btn-outline-secondary" type="button"
+                        data-toggle-password="reg-password">Show</button>
+              </div>
+              {% if errors.password %}
+                <div class="text-danger small mt-1">{{ errors.password }}</div>
+              {% endif %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">Confirm Password</label>
+              <div class="input-group">
+                <input id="reg-confirm" name="confirm" type="password" class="form-control" required minlength="6">
+                <button class="btn btn-outline-secondary" type="button"
+                        data-toggle-password="reg-confirm">Show</button>
+              </div>
+              {% if errors.confirm %}
+                <div class="text-danger small mt-1">{{ errors.confirm }}</div>
+              {% endif %}
+            </div>
+          </div>
+          <button class="btn btn-success w-100 mt-3">Register</button>
+        </form>
+        <div class="text-center mt-2">
+          <span class="text-muted small">Already have an account?</span>
+          <a href="{{ url_for('login') }}" class="small">Back to login</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
