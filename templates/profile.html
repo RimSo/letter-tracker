@@ -1,53 +1,109 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="row justify-content-center mt-4">
-  <div class="col-md-6 col-lg-5">
+
+<div class="row justify-content-center">
+  <div class="col-md-6">
     <div class="card shadow-sm">
-      <div class="card-header bg-white d-flex justify-content-between align-items-center">
+
+      <div class="card-header d-flex justify-content-between">
         <strong>Your profile</strong>
         <span class="badge bg-success">Verified</span>
       </div>
+
       <div class="card-body">
-        <form method="post">
-          <div class="mb-3">
-            <label class="form-label">Full name</label>
-            <input name="name" type="text" class="form-control" required value="{{ name }}">
-            {% if errors.name %}
-              <div class="text-danger small mt-1">{{ errors.name }}</div>
+
+        <!-- PROFILE FORM STARTS HERE -->
+        <form method="post" enctype="multipart/form-data">
+
+          <!-- Avatar -->
+          <div class="text-center mb-4">
+
+            {% if current_user.avatar_path %}
+                <!-- Avatar image -->
+                <img src="{{ url_for('static', filename='avatars/' + current_user.avatar_path) }}"
+                     class="rounded-circle mb-2"
+                     style="width:120px;height:120px;object-fit:cover;border:3px solid #ddd;">
+
+                <!-- Upload new -->
+                <label class="btn btn-outline-secondary btn-sm me-2">
+                    <input type="file" name="avatar" accept="image/*" style="display:none"
+                           onchange="this.form.submit()">
+                    <i class="bi bi-upload"></i> Change
+                </label>
+
+                <!-- Delete avatar -->
+                <a href="{{ url_for('delete_avatar') }}"
+                   class="btn btn-outline-danger btn-sm"
+                   onclick="return confirm('Delete your profile photo?');">
+                    <i class="bi bi-trash"></i>
+                </a>
+
+            {% else %}
+                <!-- Default avatar -->
+                <div class="rounded-circle bg-secondary d-flex align-items-center justify-content-center mx-auto mb-2"
+                     style="width:120px;height:120px;color:white;font-size:40px;">
+                     <i class="bi bi-person"></i>
+                </div>
+
+                <!-- Upload first avatar -->
+                <label class="btn btn-outline-secondary btn-sm">
+                    <input type="file" name="avatar" accept="image/*" style="display:none"
+                           onchange="this.form.submit()">
+                    <i class="bi bi-upload"></i> Upload
+                </label>
             {% endif %}
+
           </div>
-          <div class="mb-3">
-            <label class="form-label">Email</label>
-            <input type="email" class="form-control" value="{{ email }}" disabled>
-          </div>
+
+
+          <!-- Name -->
+          <label class="form-label">Full name</label>
+          <input name="name" class="form-control" value="{{ current_user.name }}" required>
+
+          <!-- Email -->
+          <label class="form-label mt-3">Email</label>
+          <input class="form-control" value="{{ current_user.email }}" disabled>
+
           <hr>
-          <p class="small text-muted mb-2">Change password (optional)</p>
-          <div class="mb-3">
-            <label class="form-label">New password</label>
-            <div class="input-group">
-              <input id="prof-password" name="password" type="password" class="form-control" minlength="6">
-              <button class="btn btn-outline-secondary" type="button"
-                      data-toggle-password="prof-password">Show</button>
-            </div>
-            {% if errors.password %}
-              <div class="text-danger small mt-1">{{ errors.password }}</div>
-            {% endif %}
+
+          <small class="text-muted">Change password (optional)</small>
+
+          <div class="input-group mt-1">
+            <input type="password" name="new_password" id="new_password" class="form-control">
+            <button class="btn btn-outline-secondary" type="button"
+                    onclick="toggle('new_password', this)">Show</button>
           </div>
-          <div class="mb-3">
-            <label class="form-label">Confirm password</label>
-            <div class="input-group">
-              <input id="prof-confirm" name="confirm" type="password" class="form-control" minlength="6">
-              <button class="btn btn-outline-secondary" type="button"
-                      data-toggle-password="prof-confirm">Show</button>
-            </div>
-            {% if errors.confirm %}
-              <div class="text-danger small mt-1">{{ errors.confirm }}</div>
-            {% endif %}
+
+          <div class="input-group mt-3">
+            <input type="password" name="confirm_password" id="confirm_password" class="form-control">
+            <button class="btn btn-outline-secondary" type="button"
+                    onclick="toggle('confirm_password', this)">Show</button>
           </div>
-          <button class="btn btn-primary">Save changes</button>
+
+          <div class="d-flex gap-2 mt-4">
+            <button class="btn btn-primary">Save changes</button>
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">Return</a>
+          </div>
+
         </form>
+        <!-- END FORM -->
+
       </div>
     </div>
   </div>
 </div>
+
+<script>
+function toggle(id, btn) {
+  const f = document.getElementById(id);
+  if (f.type === "password") {
+    f.type = "text";
+    btn.textContent = "Hide";
+  } else {
+    f.type = "password";
+    btn.textContent = "Show";
+  }
+}
+</script>
+
 {% endblock %}

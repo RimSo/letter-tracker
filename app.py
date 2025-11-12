@@ -1,4 +1,5 @@
 import os
+import io
 from datetime import datetime
 from flask import (
     Flask, render_template, request, redirect,
@@ -13,6 +14,7 @@ from flask_login import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
+from PIL import Image, ImageOps, ImageDraw
 import sqlite3
 
 # ---------------------------------------------------------------------
@@ -23,6 +25,14 @@ DATA_DIR = os.path.join(BASE_DIR, 'data')
 UPLOAD_DIR = os.path.join(DATA_DIR, 'uploads')
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 DB_PATH = os.path.join(DATA_DIR, 'letters.db')
+
+# Avatar upload folder
+AVATAR_DIR = os.path.join(BASE_DIR, "static", "avatars")
+os.makedirs(AVATAR_DIR, exist_ok=True)
+# Avatar settings
+AVATAR_SIZE = 256
+AVATAR_MAX_BYTES = 1 * 1024 * 1024  # 1 MB
+AVATAR_EXTENSIONS = {"jpg", "jpeg", "png", "gif", "webp", "svg"}
 
 app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "change-me-please")
@@ -40,10 +50,11 @@ USERS_DB = os.path.join(BASE_DIR, "users.sqlite")
 # Users (SQLite)
 # ---------------------------------------------------------------------
 class User(UserMixin):
-    def __init__(self, id_, email, name):
+    def __init__(self, id_, email, name, avatar_path=None):
         self.id = str(id_)
         self.email = email
         self.name = name
+        self.avatar_path = avatar_path
 
 
 def _users_conn():
@@ -72,6 +83,12 @@ def ensure_users_table():
             conn.execute("ALTER TABLE users ADD COLUMN verified INTEGER DEFAULT 0")
         conn.commit()
 
+# Add avatar_path column if missing
+with _users_conn() as conn:
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(users)")]
+    if "avatar_path" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN avatar_path TEXT")
+    conn.commit()
 
 @app.before_request
 def _bootstrap_auth_once():
@@ -84,11 +101,16 @@ def _bootstrap_auth_once():
 def load_user(user_id):
     with _users_conn() as conn:
         row = conn.execute(
-            "SELECT id, email, name FROM users WHERE id = ?",
+            "SELECT id, email, name, avatar_path FROM users WHERE id = ?",
             (user_id,)
         ).fetchone()
     if row:
-        return User(row["id"], row["email"], row["name"])
+        return User(
+            id_=row["id"],
+            email=row["email"],
+            name=row["name"],
+            avatar_path=row["avatar_path"]
+        )
     return None
 
 
@@ -594,50 +616,127 @@ def reset_password(token):
 
     return render_template("reset_password.html", errors=errors)
 
+@app.route("/delete_avatar")
+@login_required
+def delete_avatar():
+    # Delete file on disk
+    if current_user.avatar_path:
+        path = os.path.join(AVATAR_DIR, current_user.avatar_path)
+        if os.path.exists(path):
+            os.remove(path)
 
+    # Remove from database
+    with _users_conn() as conn:
+        conn.execute("UPDATE users SET avatar_path = NULL WHERE id = ?", (current_user.id,))
+        conn.commit()
+
+    current_user.avatar_path = None
+    flash("Profile photo removed.", "success")
+    return redirect(url_for("profile"))
 @app.route("/profile", methods=["GET", "POST"])
 @login_required
 def profile():
-    errors = {}
-    name = current_user.name
-
     if request.method == "POST":
-        name = (request.form.get("name") or "").strip()
-        password = request.form.get("password") or ""
-        confirm = request.form.get("confirm") or ""
+        name = request.form.get("name").strip()
+        new_pass = request.form.get("new_password") or ""
+        confirm = request.form.get("confirm_password") or ""
 
-        if not name:
-            errors["name"] = "Name is required."
-        if password or confirm:
-            if len(password) < 6:
-                errors["password"] = "Password must be at least 6 characters."
-            if password != confirm:
-                errors["confirm"] = "Passwords do not match."
+        # --- Update name ---
+        with _users_conn() as conn:
+            conn.execute("UPDATE users SET name = ? WHERE id = ?", (name, current_user.id))
+            conn.commit()
+        current_user.name = name
 
-        if not errors:
+        # --- Update password ---
+        if new_pass:
+            if new_pass != confirm:
+                flash("Passwords do not match.", "danger")
+                return redirect(url_for("profile"))
+            if len(new_pass) < 6:
+                flash("Password must be at least 6 characters.", "danger")
+                return redirect(url_for("profile"))
+
             with _users_conn() as conn:
-                if password:
-                    conn.execute(
-                        "UPDATE users SET name = ?, password_hash = ? WHERE id = ?",
-                        (name, generate_password_hash(password), int(current_user.id))
-                    )
-                else:
-                    conn.execute(
-                        "UPDATE users SET name = ? WHERE id = ?",
-                        (name, int(current_user.id))
-                    )
+                conn.execute(
+                    "UPDATE users SET password_hash = ? WHERE id = ?",
+                    (generate_password_hash(new_pass), current_user.id)
+                )
                 conn.commit()
-            # update current_user in session
-            current_user.name = name
-            flash("Profile updated.", "success")
-            return redirect(url_for("profile"))
+            flash("Password updated.", "success")
 
-    return render_template(
-        "profile.html",
-        name=name,
-        email=current_user.email,
-        errors=errors,
-    )
+        # --- Update avatar (resize 256px, circle crop, SVG/WebP support, delete old, 1MB limit) ---
+        file = request.files.get("avatar")
+        if file and file.filename:
+            # Read file into memory
+            data = file.read()
+
+            # 1 MB size check
+            if len(data) > (1 * 1024 * 1024):  # 1 MB
+                flash("Avatar must be at most 1 MB.", "danger")
+                return redirect(url_for("profile"))
+
+            # Allowed extensions
+            ext = file.filename.rsplit(".", 1)[1].lower()
+            allowed = {"jpg", "jpeg", "png", "gif", "webp", "svg"}
+            if ext not in allowed:
+                flash("Invalid avatar type. Allowed: JPG, PNG, GIF, WEBP, SVG.", "danger")
+                return redirect(url_for("profile"))
+
+            # Remove previous avatar file if exists
+            if getattr(current_user, "avatar_path", None):
+                old_path = os.path.join(AVATAR_DIR, current_user.avatar_path)
+                try:
+                    if os.path.exists(old_path):
+                        os.remove(old_path)
+                except OSError:
+                    pass
+
+            # --- If SVG, save directly without processing ---
+            if ext == "svg":
+                filename = f"user_{current_user.id}.svg"
+                save_path = os.path.join(AVATAR_DIR, filename)
+                with open(save_path, "wb") as f:
+                    f.write(data)
+
+            else:
+                # --- Raster image: resize + circle crop ---
+                try:
+                    img = Image.open(io.BytesIO(data))
+                except Exception:
+                    flash("Could not process image file.", "danger")
+                    return redirect(url_for("profile"))
+
+                img = img.convert("RGBA")
+                img = ImageOps.fit(img, (256, 256), Image.LANCZOS)
+
+                # Create circle mask
+                mask = Image.new("L", (256, 256), 0)
+                draw = ImageDraw.Draw(mask)
+                draw.ellipse((0, 0, 256, 256), fill=255)
+                img.putalpha(mask)
+
+                # Save final PNG regardless of original format
+                filename = f"user_{current_user.id}.png"
+                save_path = os.path.join(AVATAR_DIR, filename)
+                img.save(save_path, format="PNG")
+
+
+            # Save to DB
+            with _users_conn() as conn:
+                conn.execute(
+                    "UPDATE users SET avatar_path = ? WHERE id = ?",
+                    (filename, current_user.id)
+                )
+                conn.commit()
+
+            current_user.avatar_path = filename
+            flash("Profile picture updated.", "success")
+
+        flash("Profile saved.", "success")
+        return redirect(url_for("profile"))
+
+    return render_template("profile.html")
+
 
 # ---------------------------------------------------------------------
 # Safe startup
