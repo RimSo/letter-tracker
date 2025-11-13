@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h3 class="mb-4">⚙️ Admin Dashboard</h3>
+
+<div class="row g-4">
+
+  <!-- USERS CARD -->
+  <div class="col-md-4">
+    <div class="card shadow-sm text-center p-3">
+      <h4>👥 Users</h4>
+      <h2 class="text-primary">{{ user_count }}</h2>
+      <a href="{{ url_for('admin_users') }}" class="btn btn-outline-primary mt-2">Manage Users</a>
+    </div>
+  </div>
+
+  <!-- LETTERS CARD -->
+  <div class="col-md-4">
+    <div class="card shadow-sm text-center p-3">
+      <h4>✉️ Letters</h4>
+      <h2 class="text-primary">{{ letter_count }}</h2>
+      <a href="{{ url_for('admin_letters') }}" class="btn btn-outline-primary mt-2">Manage Letters</a>
+    </div>
+  </div>
+
+  <!-- COMPLETED -->
+  <div class="col-md-4">
+    <div class="card shadow-sm text-center p-3">
+      <h4>✔ Completed</h4>
+      <h2 class="text-success">{{ completed }}</h2>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

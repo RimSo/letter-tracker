@@ -90,11 +90,33 @@
         </a>
 
         <ul class="dropdown-menu dropdown-menu-end shadow">
-          <li><a class="dropdown-item" href="{{ url_for('profile') }}">👤 Profile</a></li>
-          <li><hr class="dropdown-divider"></li>
-          <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}">⏻ Logout</a></li>
-        </ul>
-      </div>
+
+  <!-- PROFILE -->
+  <li>
+    <a class="dropdown-item" href="{{ url_for('profile') }}">
+      👤 Profile
+    </a>
+  </li>
+
+  <!-- ADMIN (only visible for admins) -->
+  {% if current_user.is_admin %}
+  <li>
+    <a class="dropdown-item" href="{{ url_for('admin_dashboard') }}">
+      🛠️ Admin
+    </a>
+  </li>
+  {% endif %}
+
+  <li><hr class="dropdown-divider"></li>
+
+  <!-- LOGOUT -->
+  <li>
+    <a class="dropdown-item text-danger" href="{{ url_for('logout') }}">
+      ⏻ Logout
+    </a>
+  </li>
+
+</ul>
       {% endif %}
 
     </div>

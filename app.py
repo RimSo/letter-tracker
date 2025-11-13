@@ -16,6 +16,15 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from PIL import Image, ImageOps, ImageDraw
 import sqlite3
+from functools import wraps
+
+def admin_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if not current_user.is_authenticated or not current_user.is_admin:
+            abort(403)
+        return f(*args, **kwargs)
+    return wrapper
 
 # ---------------------------------------------------------------------
 # Paths / basic config
@@ -50,11 +59,12 @@ USERS_DB = os.path.join(BASE_DIR, "users.sqlite")
 # Users (SQLite)
 # ---------------------------------------------------------------------
 class User(UserMixin):
-    def __init__(self, id_, email, name, avatar_path=None):
+    def __init__(self, id_, email, name, avatar_path=None, is_admin=0):
         self.id = str(id_)
         self.email = email
         self.name = name
         self.avatar_path = avatar_path
+        self.is_admin = bool(is_admin)
 
 
 def _users_conn():
@@ -90,6 +100,14 @@ with _users_conn() as conn:
         conn.execute("ALTER TABLE users ADD COLUMN avatar_path TEXT")
     conn.commit()
 
+# Add is_admin column if missing
+with _users_conn() as conn:
+    cols = [r[1] for r in conn.execute("PRAGMA table_info(users)")]
+    if "is_admin" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
+    conn.commit()
+
+
 @app.before_request
 def _bootstrap_auth_once():
     if not getattr(app, "_auth_initialized", False):
@@ -101,7 +119,7 @@ def _bootstrap_auth_once():
 def load_user(user_id):
     with _users_conn() as conn:
         row = conn.execute(
-            "SELECT id, email, name, avatar_path FROM users WHERE id = ?",
+            "SELECT id, email, name, avatar_path, is_admin FROM users WHERE id = ?",
             (user_id,)
         ).fetchone()
     if row:
@@ -109,10 +127,10 @@ def load_user(user_id):
             id_=row["id"],
             email=row["email"],
             name=row["name"],
-            avatar_path=row["avatar_path"]
+            avatar_path=row["avatar_path"],
+            is_admin=row["is_admin"]
         )
     return None
-
 
 # ---------------------------------------------------------------------
 # Token helpers for email verification & password reset
@@ -176,6 +194,7 @@ COUNTRIES = [
 class Letter(db.Model):
     __tablename__ = 'letters'
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, nullable=False)  # ← NEW
     nickname = db.Column(db.String(120), nullable=True)
     name = db.Column(db.String(200), nullable=False)
     to_country = db.Column(db.String(120), nullable=False)
@@ -238,7 +257,81 @@ def sent_date_desc(q):
         Letter.sent_date.desc(),
         Letter.id.desc()
     )
+@app.route("/admin")
+@login_required
+@admin_required
+def admin_dashboard():
+    # Quick stats
+    with _users_conn() as conn:
+        users = conn.execute("SELECT * FROM users ORDER BY created_at DESC").fetchall()
+        user_count = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
 
+    letter_count = Letter.query.count()
+    completed = Letter.query.filter_by(is_completed=True).count()
+
+    return render_template(
+        "admin/dashboard.html",
+        users=users,
+        user_count=user_count,
+        letter_count=letter_count,
+        completed=completed
+    )
+
+@app.route("/admin/users")
+@login_required
+@admin_required
+def admin_users():
+    with _users_conn() as conn:
+        users = conn.execute("SELECT * FROM users ORDER BY created_at DESC").fetchall()
+    return render_template("admin/users.html", users=users)
+
+@app.route("/admin/letters")
+@login_required
+@admin_required       # <-- if you added the decorator earlier
+def admin_letters():
+    letters = Letter.query.order_by(Letter.id.desc()).all()
+    return render_template("admin/letters.html", letters=letters)
+@app.route("/admin/users/<int:user_id>/edit", methods=["GET", "POST"])
+@login_required
+@admin_required
+def admin_edit_user(user_id):
+    with _users_conn() as conn:
+        user = conn.execute(
+            "SELECT id, name, email, verified, is_admin FROM users WHERE id = ?",
+            (user_id,)
+        ).fetchone()
+
+    if not user:
+        flash("User not found.", "danger")
+        return redirect(url_for("admin_users"))
+
+    if request.method == "POST":
+        name = request.form.get("name").strip()
+        verified = 1 if request.form.get("verified") else 0
+        is_admin = 1 if request.form.get("is_admin") else 0
+
+        with _users_conn() as conn:
+            conn.execute(
+                "UPDATE users SET name = ?, verified = ?, is_admin = ? WHERE id = ?",
+                (name, verified, is_admin, user_id)
+            )
+            conn.commit()
+
+        flash("User updated.", "success")
+        return redirect(url_for("admin_users"))
+
+    return render_template("admin/edit_user.html", user=user)
+
+@app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
+@login_required
+@admin_required
+def admin_delete_user(user_id):
+    with _users_conn() as conn:
+        conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+        conn.commit()
+
+    flash("User deleted.", "warning")
+    return redirect(url_for("admin_users"))
 # ---------------------------------------------------------------------
 # Letter views (all protected)
 # ---------------------------------------------------------------------
@@ -256,19 +349,21 @@ def index():
             (Letter.from_country.ilike(like)) |
             (Letter.tracking.ilike(like))
         )
-    letters = sent_date_desc(query).all()
+    letters = sent_date_desc(
+        query.filter(Letter.user_id == current_user.id)
+    ).all()
 
     sending_letters = sent_date_desc(
-        Letter.query.filter_by(letter_type='Sending', is_completed=False)
+        Letter.query.filter_by(letter_type='Sending', is_completed=False, user_id=current_user.id)
     ).all()
     receiving_letters = sent_date_desc(
-        Letter.query.filter_by(letter_type='Receiving', is_completed=False)
+        Letter.query.filter_by(letter_type='Receiving', is_completed=False, user_id=current_user.id)
     ).all()
     completed_letters = sent_date_desc(
-        Letter.query.filter_by(is_completed=True)
+        Letter.query.filter_by(is_completed=True, user_id=current_user.id)
     ).all()
     draft_letters = sent_date_desc(
-        Letter.query.filter_by(status='Draft')
+        Letter.query.filter_by(status='Draft', user_id=current_user.id)
     ).all()
 
     counts = {
@@ -331,6 +426,7 @@ def add():
 
     # Create letter first to get ID for filename when nickname is missing
     letter = Letter(
+        user_id=current_user.id,  # ← NEW
         nickname=nickname,
         name=name,
         letter_type=letter_type,
@@ -363,6 +459,7 @@ def add():
     # If it's a Sending record, auto-create a Receiving draft (reverse To/From)
     if letter_type == 'Sending':
         receiving_copy = Letter(
+            user_id=current_user.id,  # ← NEW
             nickname=nickname,
             name=name,
             letter_type='Receiving',
@@ -383,13 +480,17 @@ def add():
 @login_required
 def edit(letter_id):
     letter = Letter.query.get_or_404(letter_id)
-    return render_template('edit.html', letter=letter)
+    if letter.user_id != current_user.id:
+        abort(403)
+    return render_template("edit.html", letter=letter)
 
 
 @app.route('/update/<int:letter_id>', methods=['POST'])
 @login_required
 def update(letter_id):
     letter = Letter.query.get_or_404(letter_id)
+    if letter.user_id != current_user.id:
+        abort(403)
     letter.nickname = request.form.get('nickname') or None
     letter.name = request.form.get('name')
     letter.letter_type = request.form.get('letter_type') or 'Sending'
@@ -412,6 +513,8 @@ def update(letter_id):
 @login_required
 def delete(letter_id):
     letter = Letter.query.get_or_404(letter_id)
+    if letter.user_id != current_user.id:
+        abort(403)
     # Also try to remove attachment from disk (optional)
     if letter.attachment_path:
         try:
@@ -428,6 +531,8 @@ def delete(letter_id):
 @login_required
 def complete(letter_id):
     letter = Letter.query.get_or_404(letter_id)
+    if letter.user_id != current_user.id:
+        abort(403)
     if letter.sent_date and letter.received_date:
         letter.is_completed = True
         db.session.commit()
@@ -451,6 +556,8 @@ def register():
         password = request.form.get("password") or ""
         confirm = request.form.get("confirm") or ""
 
+        if "is_admin" not in cols:
+            conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
         if not name:
             errors["name"] = "Full name is required."
         if not email:
@@ -746,8 +853,10 @@ def autocomplete():
 
     results = set()
 
-    # Search letters
-    for L in Letter.query.all():
+    # Search ONLY current user's letters
+    letters = Letter.query.filter_by(user_id=current_user.id).all()
+
+    for L in letters:
         if q in (L.nickname or "").lower():
             results.add(L.nickname)
         if q in L.name.lower():
@@ -759,7 +868,7 @@ def autocomplete():
         if L.tracking and q in L.tracking.lower():
             results.add(L.tracking)
 
-    return list(results)[:10]  # top 10 suggestions
+    return list(results)[:10]
 # ---------------------------------------------------------------------
 # Safe startup
 # ---------------------------------------------------------------------
@@ -768,6 +877,9 @@ if __name__ == '__main__':
         db.create_all()
         with db.engine.connect() as conn:
             cols = [r[1] for r in conn.execute(text("PRAGMA table_info(letters)"))]
+            if 'user_id' not in cols:
+                conn.execute(text("ALTER TABLE letters ADD COLUMN user_id INTEGER"))
+                conn.execute(text("UPDATE letters SET user_id = 1 WHERE user_id IS NULL"))
             if 'letter_type' not in cols:
                 conn.execute(text("ALTER TABLE letters ADD COLUMN letter_type VARCHAR(20) DEFAULT 'Sending'"))
             if 'is_completed' not in cols:

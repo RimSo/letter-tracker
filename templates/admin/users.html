@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<h3 class="mb-4">👥 Manage Users</h3>
+
+<table class="table table-hover">
+  <thead class="table-light">
+    <tr>
+      <th>ID</th>
+      <th>Name</th>
+      <th>Email</th>
+      <th>Verified</th>
+      <th>Admin</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for u in users %}
+    <tr>
+      <td>{{ u.id }}</td>
+      <td>{{ u.name }}</td>
+      <td>{{ u.email }}</td>
+      <td>{{ "✔" if u.verified else "✖" }}</td>
+      <td>{{ "✔" if u.is_admin else "✖" }}</td>
+      <td>
+    <a class="btn btn-sm btn-primary"
+       href="{{ url_for('admin_edit_user', user_id=u.id) }}">
+       Edit
+    </a>
+
+    <form method="POST" action="{{ url_for('admin_delete_user', user_id=u.id) }}"
+          class="d-inline">
+        <button class="btn btn-sm btn-danger"
+                onclick="return confirm('Delete this user?');">
+            Delete
+        </button>
+    </form>
+</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+{% endblock %}

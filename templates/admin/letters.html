@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card shadow-sm">
+  <div class="card-header"><strong>All Letters</strong></div>
+
+  <div class="table-responsive">
+    <table class="table table-striped">
+      <thead class="table-light">
+        <tr>
+          <th>ID</th>
+          <th>User</th>
+          <th>Name</th>
+          <th>Type</th>
+          <th>To</th>
+          <th>From</th>
+          <th>Sent</th>
+          <th>Received</th>
+          <th>Tracking</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for l in letters %}
+        <tr>
+          <td>{{ l.id }}</td>
+          <td>{{ l.user_id }}</td>
+          <td>{{ l.name }}</td>
+          <td>{{ l.letter_type }}</td>
+          <td>{{ l.to_country }}</td>
+          <td>{{ l.from_country }}</td>
+          <td>{{ l.sent_date }}</td>
+          <td>{{ l.received_date }}</td>
+          <td>{{ l.tracking }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
