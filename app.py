@@ -284,7 +284,44 @@ def admin_users():
     with _users_conn() as conn:
         users = conn.execute("SELECT * FROM users ORDER BY created_at DESC").fetchall()
     return render_template("admin/users.html", users=users)
+@app.route("/admin/users/add", methods=["GET", "POST"])
+@login_required
+@admin_required
+def admin_add_user():
+    errors = {}
+    name = ""
+    email = ""
 
+    if request.method == "POST":
+        name = (request.form.get("name") or "").strip()
+        email = (request.form.get("email") or "").strip().lower()
+        password = request.form.get("password") or ""
+        admin = bool(request.form.get("admin"))
+
+        if not name:
+            errors["name"] = "Name is required."
+        if not email:
+            errors["email"] = "Email is required."
+        if not password:
+            errors["password"] = "Password is required."
+
+        if not errors:
+            try:
+                with _users_conn() as conn:
+                    conn.execute(
+                        """
+                        INSERT INTO users (email, name, password_hash, verified, is_admin)
+                        VALUES (?, ?, ?, ?, ?)
+                        """,
+                        (email, name, generate_password_hash(password), 1, int(admin))
+                    )
+                    conn.commit()
+                flash("User created.", "success")
+                return redirect(url_for("admin_users"))
+            except sqlite3.IntegrityError:
+                errors["email"] = "This email is already registered."
+
+    return render_template("admin/add_user.html", errors=errors, name=name, email=email)
 @app.route("/admin/letters")
 @login_required
 @admin_required       # <-- if you added the decorator earlier
