@@ -105,6 +105,14 @@ with _users_conn() as conn:
     cols = [r[1] for r in conn.execute("PRAGMA table_info(users)")]
     if "is_admin" not in cols:
         conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
+    if "active" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN active INTEGER DEFAULT 1")
+
+    if "last_login" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN last_login TIMESTAMP")
+
+    if "last_password_change" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN last_password_change TIMESTAMP")
     conn.commit()
 
 
@@ -328,37 +336,45 @@ def admin_add_user():
 def admin_letters():
     letters = Letter.query.order_by(Letter.id.desc()).all()
     return render_template("admin/letters.html", letters=letters)
-@app.route("/admin/users/<int:user_id>/edit", methods=["GET", "POST"])
+@app.route("/admin/users/<int:user_id>/edit", methods=["POST"])
 @login_required
 @admin_required
 def admin_edit_user(user_id):
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip().lower()
+    password = request.form.get("password", "")
+    is_admin = 1 if request.form.get("admin") else 0
+    verified = 1 if request.form.get("verified") else 0
+    active = 1 if request.form.get("active") else 0
+
     with _users_conn() as conn:
-        user = conn.execute(
-            "SELECT id, name, email, verified, is_admin FROM users WHERE id = ?",
-            (user_id,)
-        ).fetchone()
+        if password:
+            conn.execute("""
+                UPDATE users SET name=?, email=?, password_hash=?, is_admin=?, verified=?, active=?, last_password_change=CURRENT_TIMESTAMP
+                WHERE id=?
+            """, (name, email, generate_password_hash(password), is_admin, verified, active, user_id))
+        else:
+            conn.execute("""
+                UPDATE users SET name=?, email=?, is_admin=?, verified=?, active=?
+                WHERE id=?
+            """, (name, email, is_admin, verified, active, user_id))
 
-    if not user:
-        flash("User not found.", "danger")
-        return redirect(url_for("admin_users"))
+        conn.commit()
 
-    if request.method == "POST":
-        name = request.form.get("name").strip()
-        verified = 1 if request.form.get("verified") else 0
-        is_admin = 1 if request.form.get("is_admin") else 0
+    flash("User updated.", "success")
+    return redirect(url_for("admin_users"))
+@app.route("/admin/users/<int:user_id>/resetpw")
+@login_required
+@admin_required
+def admin_reset_password(user_id):
+    new_pass = "Temp123!"
+    with _users_conn() as conn:
+        conn.execute("UPDATE users SET password_hash=? WHERE id=?",
+                     (generate_password_hash(new_pass), user_id))
+        conn.commit()
 
-        with _users_conn() as conn:
-            conn.execute(
-                "UPDATE users SET name = ?, verified = ?, is_admin = ? WHERE id = ?",
-                (name, verified, is_admin, user_id)
-            )
-            conn.commit()
-
-        flash("User updated.", "success")
-        return redirect(url_for("admin_users"))
-
-    return render_template("admin/edit_user.html", user=user)
-
+    flash(f"Temporary password: {new_pass}", "info")
+    return redirect(url_for("admin_users"))
 @app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
 @login_required
 @admin_required
@@ -652,25 +668,31 @@ def login():
         if not errors:
             with _users_conn() as conn:
                 row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+
             if not row or not check_password_hash(row["password_hash"], password):
                 errors["__all__"] = "Invalid email or password."
             elif not row["verified"]:
                 errors["__all__"] = "Please verify your email first."
 
-                # Optionally re-send verification link
                 token = generate_token(row["id"], "email-verify")
                 verify_url = url_for("verify_email", token=token, _external=True)
                 send_link_via_flash("New verification link", verify_url)
             else:
-                user = User(row["id"], row["email"], row["name"])
+                user = User(
+                    row["id"],
+                    row["email"],
+                    row["name"],
+                    avatar_path=row["avatar_path"] if "avatar_path" in row.keys() else None,
+                    is_admin=row["is_admin"] if "is_admin" in row.keys() else 0
+                )
+
                 login_user(user, remember=remember)
                 flash("Welcome back!", "success")
+
                 next_url = request.args.get("next") or url_for("index")
                 return redirect(next_url)
 
     return render_template("login.html", errors=errors, email=email)
-
-
 @app.route("/logout")
 @login_required
 def logout():

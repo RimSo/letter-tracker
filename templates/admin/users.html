@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3>👥 Manage Users</h3>
 
@@ -8,7 +9,8 @@
         ➕ Add User
     </button>
 </div>
-<!-- Add User Modal -->
+
+<!-- ADD USER MODAL -->
 <div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content">
@@ -52,6 +54,8 @@
     </div>
   </div>
 </div>
+
+<!-- USERS TABLE -->
 <table class="table table-hover">
   <thead class="table-light">
     <tr>
@@ -63,6 +67,7 @@
       <th>Actions</th>
     </tr>
   </thead>
+
   <tbody>
     {% for u in users %}
     <tr>
@@ -71,21 +76,87 @@
       <td>{{ u.email }}</td>
       <td>{{ "✔" if u.verified else "✖" }}</td>
       <td>{{ "✔" if u.is_admin else "✖" }}</td>
-      <td>
-    <a class="btn btn-sm btn-primary"
-       href="{{ url_for('admin_edit_user', user_id=u.id) }}">
-       Edit
-    </a>
 
-    <form method="POST" action="{{ url_for('admin_delete_user', user_id=u.id) }}"
-          class="d-inline">
-        <button class="btn btn-sm btn-danger"
-                onclick="return confirm('Delete this user?');">
-            Delete
+      <td class="d-flex gap-2">
+
+        <!-- EDIT BUTTON -->
+        <button class="btn btn-sm btn-primary"
+                data-bs-toggle="modal"
+                data-bs-target="#editUserModal{{ u.id }}">
+          Edit
         </button>
-    </form>
-</td>
+
+        <!-- RESET PASSWORD -->
+        <a class="btn btn-warning btn-sm"
+           href="{{ url_for('admin_reset_password', user_id=u.id) }}"
+           onclick="return confirm('Send password reset link to this user?');">
+           Reset Password
+        </a>
+
+        <!-- DELETE USER -->
+        <form method="POST"
+              action="{{ url_for('admin_delete_user', user_id=u.id) }}"
+              onsubmit="return confirm('Delete this user?');">
+            <button class="btn btn-sm btn-danger">Delete</button>
+        </form>
+
+      </td>
     </tr>
+
+    <!-- EDIT USER MODAL (ONE PER USER) -->
+    <div class="modal fade" id="editUserModal{{ u.id }}" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+
+          <form method="POST" action="{{ url_for('admin_edit_user', user_id=u.id) }}" enctype="multipart/form-data">
+
+            <div class="modal-header">
+              <h5 class="modal-title">Edit {{ u.name }}</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+
+              <label class="form-label">Full Name</label>
+              <input type="text" class="form-control" name="name" value="{{ u.name }}">
+
+              <label class="form-label mt-2">Email</label>
+              <input type="email" class="form-control" name="email" value="{{ u.email }}">
+
+              <label class="form-label mt-2">New Password (optional)</label>
+              <input type="password" class="form-control" name="password">
+
+              <label class="form-label mt-2">Change Avatar</label>
+              <input type="file" class="form-control" name="avatar" accept="image/*">
+
+              <div class="form-check mt-3">
+                <input class="form-check-input" type="checkbox" name="admin" {% if u.is_admin %}checked{% endif %}>
+                <label class="form-check-label">Admin</label>
+              </div>
+
+              <div class="form-check mt-1">
+                <input class="form-check-input" type="checkbox" name="verified" {% if u.verified %}checked{% endif %}>
+                <label class="form-check-label">Verified</label>
+              </div>
+
+              <div class="form-check mt-1">
+                <input class="form-check-input" type="checkbox" name="active" {% if u.active %}checked{% endif %}>
+                <label class="form-check-label">Active (Can Log In)</label>
+              </div>
+
+            </div>
+
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+              <button class="btn btn-primary">Save Changes</button>
+            </div>
+
+          </form>
+
+        </div>
+      </div>
+    </div>
+
     {% endfor %}
   </tbody>
 </table>
