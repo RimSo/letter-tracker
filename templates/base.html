@@ -21,73 +21,83 @@
 
   <body class="bg-light">
 
-    <!-- SINGLE NAVBAR (fixed) -->
-    <nav class="navbar navbar-light bg-white border-bottom px-3">
+   <!-- SINGLE NAVBAR (fixed) -->
+<nav class="navbar navbar-light bg-white border-bottom px-3">
   <div class="container-fluid d-flex justify-content-between align-items-center">
 
-    <!-- LEFT: APP LOGO + TITLE -->
+    <!-- LEFT: Logo + Title -->
     <a class="navbar-brand fw-semibold d-flex align-items-center" href="{{ url_for('index') }}">
       <div style="
-          width:34px;
-          height:34px;
-          overflow:hidden;
-          border-radius:6px;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-      ">
+          width:34px;height:34px;overflow:hidden;border-radius:6px;
+          display:flex;align-items:center;justify-content:center;">
         <img src="{{ url_for('static', filename='logo.png') }}"
-             alt="Logo"
-             style="height:100%; width:auto;">
+             style="height:100%;width:auto;">
       </div>
       <span class="ms-2 fs-5">Letter Tracker</span>
     </a>
 
-    <!-- RIGHT: AUTH AREA -->
-    {% if current_user.is_authenticated %}
+    <!-- RIGHT SIDE: Search + User Dropdown -->
+    <div class="d-flex align-items-center gap-3">
+
+      <!-- SEARCH BAR (RIGHT) -->
+      <div class="position-relative" style="width:260px;">
+        <form id="searchForm" method="get" action="{{ url_for('index') }}">
+
+          <!-- Search icon -->
+          <i class="bi bi-search position-absolute"
+             style="left:10px; top:50%; transform:translateY(-50%); color:#888;"></i>
+
+          <input type="text"
+                 id="searchInput"
+                 name="q"
+                 autocomplete="off"
+                 value="{{ request.args.get('q','') }}"
+                 placeholder="Search letters…"
+                 class="form-control ps-5 pe-5">
+
+          <!-- Clear button -->
+          <button type="button"
+                  id="clearSearch"
+                  class="btn position-absolute"
+                  style="
+                      right:5px; top:50%; transform:translateY(-50%);
+                      background:transparent; border:none;
+                      opacity:0; transition:opacity .25s;">
+              <i class="bi bi-x-lg text-muted"></i>
+          </button>
+
+          <!-- Autocomplete results -->
+          <div id="autocompleteBox"
+               class="list-group position-absolute w-100 shadow-sm"
+               style="top: 110%; z-index:1000; display:none; max-height:200px; overflow-y:auto;">
+          </div>
+
+        </form>
+      </div>
 
       <!-- USER DROPDOWN -->
+      {% if current_user.is_authenticated %}
       <div class="dropdown">
         <a href="#" class="d-flex align-items-center text-decoration-none"
            id="userDropdown" data-bs-toggle="dropdown" aria-expanded="false">
-
-          <!-- Avatar -->
           <div class="rounded-circle overflow-hidden bg-light border"
-     style="width:34px; height:34px;">
-  <img src="{{ url_for('static', filename='avatars/' + (current_user.avatar_path or 'default.png')) }}"
-     class="rounded-circle"
-     style="width:32px;height:32px;object-fit:cover;">
-</div>
-
+               style="width:34px; height:34px;">
+            <img src="{{ url_for('static', filename='avatars/' + (current_user.avatar_path or 'default.png')) }}"
+                 class="rounded-circle"
+                 style="width:32px;height:32px;object-fit:cover;">
+          </div>
           <span class="ms-2 fw-semibold d-none d-md-inline">{{ current_user.name }}</span>
         </a>
 
-        <ul class="dropdown-menu dropdown-menu-end shadow" aria-labelledby="userDropdown">
-          <li>
-            <a class="dropdown-item" href="{{ url_for('profile') }}">
-              👤 Profile
-            </a>
-          </li>
-
+        <ul class="dropdown-menu dropdown-menu-end shadow">
+          <li><a class="dropdown-item" href="{{ url_for('profile') }}">👤 Profile</a></li>
           <li><hr class="dropdown-divider"></li>
-
-          <li>
-            <a class="dropdown-item text-danger" href="{{ url_for('logout') }}">
-              ⏻ Logout
-            </a>
-          </li>
+          <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}">⏻ Logout</a></li>
         </ul>
       </div>
+      {% endif %}
 
-    {% else %}
-
-      <!-- LOGIN / REGISTER BUTTONS -->
-      <div class="d-flex align-items-center gap-2">
-        <a href="{{ url_for('login') }}" class="btn btn-outline-primary btn-sm">Login</a>
-        <a href="{{ url_for('register') }}" class="btn btn-primary btn-sm">Register</a>
-      </div>
-
-    {% endif %}
+    </div>
   </div>
 </nav>
     <!-- END NAVBAR -->
@@ -134,6 +144,85 @@
         });
       });
     </script>
+  <script>
+document.addEventListener("DOMContentLoaded", () => {
+  const input = document.getElementById("searchInput");
+  const clearBtn = document.getElementById("clearSearch");
+  const autoBox = document.getElementById("autocompleteBox");
+  const searchForm = document.getElementById("searchForm");
+
+  // 🔥 Show clear button only if input has text
+  function updateClear() {
+    if (input.value.length > 0) {
+      clearBtn.style.opacity = 1;
+      clearBtn.style.pointerEvents = "auto";
+    } else {
+      clearBtn.style.opacity = 0;
+      clearBtn.style.pointerEvents = "none";
+    }
+  }
+  updateClear();
+
+  // 🔥 Clear search with fade animation
+  clearBtn.onclick = () => {
+    input.value = "";
+    updateClear();
+    autoBox.style.display = "none";
+
+    // Smooth fade-out effect
+    input.style.transition = "opacity 0.2s";
+    input.style.opacity = 0.2;
+    setTimeout(() => {
+      input.style.opacity = 1;
+      window.location = "{{ url_for('index') }}";
+    }, 150);
+  };
+
+  // 🔥 Keyboard shortcut "/" focuses search
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "/" && document.activeElement !== input) {
+      e.preventDefault();
+      input.focus();
+    }
+  });
+
+  // 🔥 Autocomplete live suggestions
+  input.addEventListener("input", async () => {
+    updateClear();
+    let q = input.value.trim();
+    if (!q) {
+      autoBox.innerHTML = "";
+      autoBox.style.display = "none";
+      return;
+    }
+
+    // Request autocomplete results
+    const res = await fetch(`/autocomplete?q=${encodeURIComponent(q)}`);
+    const items = await res.json();
+
+    // Build dropdown
+    if (items.length > 0) {
+      autoBox.innerHTML = items
+        .map(i => `
+            <button type="button" class="list-group-item list-group-item-action"
+                    onclick="document.getElementById('searchInput').value='${i}'; document.getElementById('searchForm').submit();">
+                ${i}
+            </button>
+        `).join("");
+      autoBox.style.display = "block";
+    } else {
+      autoBox.style.display = "none";
+    }
+  });
+
+  // Hide autocomplete if clicking outside
+  document.addEventListener("click", (e) => {
+    if (!autoBox.contains(e.target) && e.target !== input) {
+      autoBox.style.display = "none";
+    }
+  });
+});
+</script>
 
   </body>
 </html>

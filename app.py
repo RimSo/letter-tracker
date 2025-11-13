@@ -737,7 +737,29 @@ def profile():
 
     return render_template("profile.html")
 
+@app.route("/autocomplete")
+@login_required
+def autocomplete():
+    q = (request.args.get("q") or "").strip().lower()
+    if not q:
+        return []
 
+    results = set()
+
+    # Search letters
+    for L in Letter.query.all():
+        if q in (L.nickname or "").lower():
+            results.add(L.nickname)
+        if q in L.name.lower():
+            results.add(L.name)
+        if q in L.to_country.lower():
+            results.add(L.to_country)
+        if q in L.from_country.lower():
+            results.add(L.from_country)
+        if L.tracking and q in L.tracking.lower():
+            results.add(L.tracking)
+
+    return list(results)[:10]  # top 10 suggestions
 # ---------------------------------------------------------------------
 # Safe startup
 # ---------------------------------------------------------------------
