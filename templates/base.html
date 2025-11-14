@@ -36,44 +36,50 @@
       <span class="ms-2 fs-5">Letter Tracker</span>
     </a>
 
-    <!-- RIGHT SIDE: Search + User Dropdown -->
-    <div class="d-flex align-items-center gap-3">
+   <!-- RIGHT SIDE: Search + User Dropdown -->
+<div class="d-flex align-items-center gap-3 ms-auto">
 
-      <!-- SEARCH BAR (RIGHT) -->
-      <div class="position-relative" style="width:260px;">
+    {% if current_user.is_authenticated
+       and not request.path.startswith('/admin')
+       and request.endpoint not in [
+            'login', 'register', 'forgot_password',
+            'reset_password', 'verify_email'
+       ]
+    %}
+
+    <!-- SEARCH BAR (RIGHT) -->
+    <div class="position-relative" style="width:260px;">
         <form id="searchForm" method="get" action="{{ url_for('index') }}">
 
-          <!-- Search icon -->
-          <i class="bi bi-search position-absolute"
-             style="left:10px; top:50%; transform:translateY(-50%); color:#888;"></i>
+            <i class="bi bi-search position-absolute"
+               style="left:10px; top:50%; transform:translateY(-50%); color:#888;"></i>
 
-          <input type="text"
-                 id="searchInput"
-                 name="q"
-                 autocomplete="off"
-                 value="{{ request.args.get('q','') }}"
-                 placeholder="Search letters…"
-                 class="form-control ps-5 pe-5">
+            <input type="text"
+                   id="searchInput"
+                   name="q"
+                   autocomplete="off"
+                   value="{{ request.args.get('q','') }}"
+                   placeholder="Search letters…"
+                   class="form-control ps-5 pe-5">
 
-          <!-- Clear button -->
-          <button type="button"
-                  id="clearSearch"
-                  class="btn position-absolute"
-                  style="
-                      right:5px; top:50%; transform:translateY(-50%);
-                      background:transparent; border:none;
-                      opacity:0; transition:opacity .25s;">
-              <i class="bi bi-x-lg text-muted"></i>
-          </button>
+            <button type="button"
+                    id="clearSearch"
+                    class="btn position-absolute"
+                    style="right:5px; top:50%; transform:translateY(-50%);
+                           background:transparent; border:none;
+                           opacity:0; transition:opacity .25s;">
+                <i class="bi bi-x-lg text-muted"></i>
+            </button>
 
-          <!-- Autocomplete results -->
-          <div id="autocompleteBox"
-               class="list-group position-absolute w-100 shadow-sm"
-               style="top: 110%; z-index:1000; display:none; max-height:200px; overflow-y:auto;">
-          </div>
+            <div id="autocompleteBox"
+                 class="list-group position-absolute w-100 shadow-sm"
+                 style="top:110%; z-index:1000; display:none; max-height:200px; overflow-y:auto;">
+            </div>
 
         </form>
-      </div>
+    </div>
+    {% endif %}
+</div>
 
       <!-- USER DROPDOWN -->
       {% if current_user.is_authenticated %}

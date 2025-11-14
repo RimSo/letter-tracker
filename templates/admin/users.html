@@ -2,12 +2,21 @@
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h3>👥 Manage Users</h3>
 
-    <!-- Button to open modal -->
+    <div class="d-flex align-items-center gap-2">
+        <!-- Back Button -->
+        <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back
+        </a>
+
+        <h3 class="ms-2">👥 Manage Users</h3>
+    </div>
+
+    <!-- Add User button -->
     <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addUserModal">
         ➕ Add User
     </button>
+
 </div>
 
 <!-- ADD USER MODAL -->

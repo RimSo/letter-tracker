@@ -609,8 +609,6 @@ def register():
         password = request.form.get("password") or ""
         confirm = request.form.get("confirm") or ""
 
-        if "is_admin" not in cols:
-            conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
         if not name:
             errors["name"] = "Full name is required."
         if not email:
