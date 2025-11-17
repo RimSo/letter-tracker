@@ -154,7 +154,7 @@
     <table class="table table-striped mb-0">
       <thead class="table-light">
         <tr>
-          <th class="sortable" data-table="all-table" data-column="0"># <span class="sort-indicator">⇅</span></th><th>Name</th><th>To</th><th>From</th>
+          <th class="sortable" data-table="all-table" data-column="0"># <span class="sort-indicator">⇅</span></th><th>Name</th><th>From</th><th>To</th>
           <th class="sortable" data-table="receiving-table" data-column="4" style="cursor:pointer;">Received <span class="sort-indicator">⇅</span></th>
           <th>Since</th><th class="sortable" data-table="all-table" data-column="8">Status <span class="sort-indicator">⇅</span></th><th>Tracking</th><th>📎</th>
         </tr>
@@ -162,7 +162,10 @@
       <tbody id="receiving-table">
         {% for l in receiving_letters %}
         <tr {% if loop.index > 5 %}class="extra-row d-none"{% endif %}>
-          <td>{{ l.id }}</td><td>{{ l.name }}</td><td>{{ l.to_country }}</td><td>{{ l.from_country }}</td>
+          <td>{{ l.id }}</td>
+            <td>{{ l.name }}</td>
+            <td>{{ l.from_country }}</td>
+            <td>{{ l.to_country }}</td>
           <td>{{ l.received_date and l.received_date.strftime('%d/%m/%Y') or '' }}</td>
           <td>{% if l.sent_date %}{{ (now().date() - l.sent_date).days }}{% endif %}</td>
           <td>{% if l.status == 'Draft' %}<span class="badge bg-secondary">Draft</span>{% else %}<span class="badge bg-info text-dark">Active</span>{% endif %}</td>
