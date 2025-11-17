@@ -533,8 +533,11 @@ def add():
 @login_required
 def edit(letter_id):
     letter = Letter.query.get_or_404(letter_id)
-    if letter.user_id != current_user.id:
+
+    # Allow admin to edit all letters
+    if not current_user.is_admin and letter.user_id != current_user.id:
         abort(403)
+
     return render_template("edit.html", letter=letter)
 
 
@@ -542,7 +545,8 @@ def edit(letter_id):
 @login_required
 def update(letter_id):
     letter = Letter.query.get_or_404(letter_id)
-    if letter.user_id != current_user.id:
+    # Allow admin to update any letter
+    if not current_user.is_admin and letter.user_id != current_user.id:
         abort(403)
     letter.nickname = request.form.get('nickname') or None
     letter.name = request.form.get('name')
@@ -566,7 +570,7 @@ def update(letter_id):
 @login_required
 def delete(letter_id):
     letter = Letter.query.get_or_404(letter_id)
-    if letter.user_id != current_user.id:
+    if not current_user.is_admin and letter.user_id != current_user.id:
         abort(403)
     # Also try to remove attachment from disk (optional)
     if letter.attachment_path:
@@ -584,7 +588,7 @@ def delete(letter_id):
 @login_required
 def complete(letter_id):
     letter = Letter.query.get_or_404(letter_id)
-    if letter.user_id != current_user.id:
+    if not current_user.is_admin and letter.user_id != current_user.id:
         abort(403)
     if letter.sent_date and letter.received_date:
         letter.is_completed = True
