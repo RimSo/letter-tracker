@@ -2,172 +2,143 @@
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-3">
-
     <div class="d-flex align-items-center gap-2">
-        <!-- Back Button -->
         <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary">
             <i class="bi bi-arrow-left"></i> Back
         </a>
-
         <h3 class="ms-2">👥 Manage Users</h3>
     </div>
 
-    <!-- Add User button -->
     <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addUserModal">
         ➕ Add User
     </button>
-
 </div>
 
-<!-- ADD USER MODAL -->
-<div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
+<!-- SEARCH USERS -->
+<div class="mb-3">
+  <input class="form-control" id="userSearch" placeholder="Search users…">
+</div>
 
-      <form method="POST" action="{{ url_for('admin_add_user') }}">
-        <div class="modal-header">
-          <h5 class="modal-title">➕ Add New User</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
+<div class="card shadow-sm">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle" id="usersTable">
+      <thead class="table-light">
+        <tr>
+          <th>ID</th>
+          <th>User</th>
+          <th>Email</th>
+          <th>Badges</th>
+          <th>Letters</th>
+          <th>Last Login</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
 
-        <div class="modal-body">
+      {% for u in users %}
+        <tr id="user-{{ u.id }}">
+          <td>{{ u.id }}</td>
 
-          <div class="mb-3">
-            <label class="form-label">Full Name</label>
-            <input type="text" name="name" class="form-control" required>
-          </div>
+          <!-- USER with avatar -->
+          <td>
+            <div class="d-flex align-items-center">
+              <img src="{{ url_for('static', filename='avatars/' ~ (u.avatar_path or 'default.png')) }}"
+                   class="rounded-circle me-2"
+                   style="width:40px; height:40px; object-fit:cover;">
+              <strong>{{ u.name }}</strong>
+            </div>
+          </td>
 
-          <div class="mb-3">
-            <label class="form-label">Email</label>
-            <input type="email" name="email" class="form-control" required>
-          </div>
+          <!-- EMAIL with tooltip -->
+          <td>
+            <span data-bs-toggle="tooltip" title="Copied!" onclick="copyToClipboard('{{ u.email }}')"
+                  style="cursor:pointer;">
+              {{ u.email }}
+            </span>
+          </td>
 
-          <div class="mb-3">
-            <label class="form-label">Password</label>
-            <input type="password" name="password" class="form-control" required>
-          </div>
+          <!-- BADGES -->
+          <td>
+            {% if u.is_admin %}
+              <span class="badge text-bg-warning">⭐ Admin</span>
+            {% endif %}
+            {% if u.verified %}
+              <span class="badge text-bg-success">✔ Verified</span>
+            {% else %}
+              <span class="badge text-bg-secondary">Unverified</span>
+            {% endif %}
+            {% if not u.active %}
+              <span class="badge text-bg-danger">Inactive</span>
+            {% endif %}
+          </td>
 
-          <div class="form-check mt-2">
-            <input type="checkbox" class="form-check-input" name="admin" id="adminCheck">
-            <label class="form-check-label" for="adminCheck">Make Admin</label>
-          </div>
+          <!-- LETTER COUNT -->
+          <td>
+            <span class="badge text-bg-primary">{{ u.letter_count }}</span>
+          </td>
 
-        </div>
+          <!-- LAST LOGIN -->
+          <td>
+            {% if u.last_login %}
+              <span class="text-muted">{{ u.last_login }}</span>
+            {% else %}
+              <span class="text-muted">Never</span>
+            {% endif %}
+          </td>
 
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button class="btn btn-success">Create User</button>
-        </div>
-      </form>
+          <!-- ACTIONS -->
+          <td class="text-end d-flex justify-content-end gap-2">
 
-    </div>
+            <!-- EDIT (open modal) -->
+            <button class="btn btn-sm btn-primary"
+                    data-bs-toggle="modal"
+                    data-bs-target="#editUserModal{{ u.id }}">
+              <i class="bi bi-pencil"></i>
+            </button>
+
+            <!-- RESET PASSWORD -->
+            <a class="btn btn-warning btn-sm"
+               href="{{ url_for('admin_reset_password', user_id=u.id) }}"
+               onclick="return confirm('Send new temporary password?');">
+              <i class="bi bi-key"></i>
+            </a>
+
+            <!-- DELETE -->
+            <form method="POST"
+                  action="{{ url_for('admin_delete_user', user_id=u.id) }}"
+                  onsubmit="return confirm('Delete this user?');">
+              <button class="btn btn-sm btn-danger">
+                  <i class="bi bi-trash"></i>
+              </button>
+            </form>
+
+          </td>
+        </tr>
+
+        {% include 'admin/_user_edit_modal.html' %}
+
+      {% endfor %}
+
+      </tbody>
+    </table>
   </div>
 </div>
 
-<!-- USERS TABLE -->
-<table class="table table-hover">
-  <thead class="table-light">
-    <tr>
-      <th>ID</th>
-      <th>Name</th>
-      <th>Email</th>
-      <th>Verified</th>
-      <th>Admin</th>
-      <th>Actions</th>
-    </tr>
-  </thead>
+{% include 'admin/_user_add_modal.html' %}
 
-  <tbody>
-    {% for u in users %}
-    <tr>
-      <td>{{ u.id }}</td>
-      <td>{{ u.name }}</td>
-      <td>{{ u.email }}</td>
-      <td>{{ "✔" if u.verified else "✖" }}</td>
-      <td>{{ "✔" if u.is_admin else "✖" }}</td>
+<script>
+/* Search filter */
+document.getElementById("userSearch").addEventListener("keyup", function () {
+    let value = this.value.toLowerCase();
+    document.querySelectorAll("#usersTable tbody tr").forEach(tr => {
+        tr.style.display = tr.textContent.toLowerCase().includes(value) ? "" : "none";
+    });
+});
 
-      <td class="d-flex gap-2">
-
-        <!-- EDIT BUTTON -->
-        <button class="btn btn-sm btn-primary"
-                data-bs-toggle="modal"
-                data-bs-target="#editUserModal{{ u.id }}">
-          Edit
-        </button>
-
-        <!-- RESET PASSWORD -->
-        <a class="btn btn-warning btn-sm"
-           href="{{ url_for('admin_reset_password', user_id=u.id) }}"
-           onclick="return confirm('Send password reset link to this user?');">
-           Reset Password
-        </a>
-
-        <!-- DELETE USER -->
-        <form method="POST"
-              action="{{ url_for('admin_delete_user', user_id=u.id) }}"
-              onsubmit="return confirm('Delete this user?');">
-            <button class="btn btn-sm btn-danger">Delete</button>
-        </form>
-
-      </td>
-    </tr>
-
-    <!-- EDIT USER MODAL (ONE PER USER) -->
-    <div class="modal fade" id="editUserModal{{ u.id }}" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog">
-        <div class="modal-content">
-
-          <form method="POST" action="{{ url_for('admin_edit_user', user_id=u.id) }}" enctype="multipart/form-data">
-
-            <div class="modal-header">
-              <h5 class="modal-title">Edit {{ u.name }}</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-
-            <div class="modal-body">
-
-              <label class="form-label">Full Name</label>
-              <input type="text" class="form-control" name="name" value="{{ u.name }}">
-
-              <label class="form-label mt-2">Email</label>
-              <input type="email" class="form-control" name="email" value="{{ u.email }}">
-
-              <label class="form-label mt-2">New Password (optional)</label>
-              <input type="password" class="form-control" name="password">
-
-              <label class="form-label mt-2">Change Avatar</label>
-              <input type="file" class="form-control" name="avatar" accept="image/*">
-
-              <div class="form-check mt-3">
-                <input class="form-check-input" type="checkbox" name="admin" {% if u.is_admin %}checked{% endif %}>
-                <label class="form-check-label">Admin</label>
-              </div>
-
-              <div class="form-check mt-1">
-                <input class="form-check-input" type="checkbox" name="verified" {% if u.verified %}checked{% endif %}>
-                <label class="form-check-label">Verified</label>
-              </div>
-
-              <div class="form-check mt-1">
-                <input class="form-check-input" type="checkbox" name="active" {% if u.active %}checked{% endif %}>
-                <label class="form-check-label">Active (Can Log In)</label>
-              </div>
-
-            </div>
-
-            <div class="modal-footer">
-              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-              <button class="btn btn-primary">Save Changes</button>
-            </div>
-
-          </form>
-
-        </div>
-      </div>
-    </div>
-
-    {% endfor %}
-  </tbody>
-</table>
+/* Copy email tooltip */
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text);
+}
+</script>
 
 {% endblock %}

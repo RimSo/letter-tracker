@@ -290,8 +290,25 @@ def admin_dashboard():
 @admin_required
 def admin_users():
     with _users_conn() as conn:
-        users = conn.execute("SELECT * FROM users ORDER BY created_at DESC").fetchall()
-    return render_template("admin/users.html", users=users)
+        rows = conn.execute("""
+            SELECT 
+                id, name, email, avatar_path, is_admin, verified, active,
+                created_at, last_login, last_password_change
+            FROM users
+            ORDER BY created_at DESC
+        """).fetchall()
+
+    # Count letters for each user
+    letter_counts = {}
+    for r in rows:
+        cnt = Letter.query.filter_by(user_id=r["id"]).count()
+        letter_counts[r["id"]] = cnt
+
+    return render_template(
+        "admin/users.html",
+        users=rows,
+        letter_counts=letter_counts
+    )
 @app.route("/admin/users/add", methods=["GET", "POST"])
 @login_required
 @admin_required
@@ -332,10 +349,24 @@ def admin_add_user():
     return render_template("admin/add_user.html", errors=errors, name=name, email=email)
 @app.route("/admin/letters")
 @login_required
-@admin_required       # <-- if you added the decorator earlier
+@admin_required
 def admin_letters():
     letters = Letter.query.order_by(Letter.id.desc()).all()
-    return render_template("admin/letters.html", letters=letters)
+
+    # Build map: user_id → user info
+    users_map = {}
+    with _users_conn() as conn:
+        rows = conn.execute("SELECT id, name, email, avatar_path, is_admin FROM users").fetchall()
+        for r in rows:
+            users_map[r["id"]] = {
+                "name": r["name"],
+                "email": r["email"],
+                "avatar": r["avatar_path"] or "default.png",
+                "is_admin": r["is_admin"],
+            }
+
+    return render_template("admin/letters.html", letters=letters, users_map=users_map)
+
 @app.route("/admin/users/<int:user_id>/edit", methods=["POST"])
 @login_required
 @admin_required
@@ -347,17 +378,74 @@ def admin_edit_user(user_id):
     verified = 1 if request.form.get("verified") else 0
     active = 1 if request.form.get("active") else 0
 
+    avatar_file = request.files.get("avatar")
+
     with _users_conn() as conn:
+        # --------------------------------------
+        # UPDATE BASIC USER FIELDS
+        # --------------------------------------
         if password:
             conn.execute("""
-                UPDATE users SET name=?, email=?, password_hash=?, is_admin=?, verified=?, active=?, last_password_change=CURRENT_TIMESTAMP
+                UPDATE users SET name=?, email=?, password_hash=?, 
+                    is_admin=?, verified=?, active=?, last_password_change=CURRENT_TIMESTAMP
                 WHERE id=?
-            """, (name, email, generate_password_hash(password), is_admin, verified, active, user_id))
+            """, (name, email, generate_password_hash(password),
+                  is_admin, verified, active, user_id))
         else:
             conn.execute("""
                 UPDATE users SET name=?, email=?, is_admin=?, verified=?, active=?
                 WHERE id=?
             """, (name, email, is_admin, verified, active, user_id))
+
+        # --------------------------------------
+        # PROCESS AVATAR UPLOAD
+        # --------------------------------------
+        if avatar_file and avatar_file.filename:
+            filename_raw = avatar_file.filename.lower()
+            ext = filename_raw.rsplit(".", 1)[-1]
+
+            allowed = {"jpg", "jpeg", "png", "gif", "webp"}
+            if ext not in allowed:
+                flash("Invalid avatar file type.", "danger")
+                return redirect(url_for("admin_users"))
+
+            data = avatar_file.read()
+
+            # Max 1MB
+            if len(data) > 1 * 1024 * 1024:
+                flash("Avatar must be under 1MB.", "danger")
+                return redirect(url_for("admin_users"))
+
+            # Remove old avatar
+            row = conn.execute("SELECT avatar_path FROM users WHERE id=?", (user_id,)).fetchone()
+            if row and row["avatar_path"]:
+                old_path = os.path.join(AVATAR_DIR, row["avatar_path"])
+                if os.path.exists(old_path):
+                    os.remove(old_path)
+
+            # Process image
+            try:
+                img = Image.open(io.BytesIO(data)).convert("RGBA")
+            except Exception as e:
+                flash("Could not process avatar image.", "danger")
+                return redirect(url_for("admin_users"))
+
+            # Resize + crop
+            img = ImageOps.fit(img, (256, 256), Image.LANCZOS)
+
+            # Apply circular mask
+            mask = Image.new("L", (256, 256), 0)
+            draw = ImageDraw.Draw(mask)
+            draw.ellipse((0, 0, 256, 256), fill=255)
+            img.putalpha(mask)
+
+            # Save PNG
+            final_name = f"user_{user_id}.png"
+            save_path = os.path.join(AVATAR_DIR, final_name)
+            img.save(save_path, format="PNG")
+
+            # Store the file path in DB
+            conn.execute("UPDATE users SET avatar_path=? WHERE id=?", (final_name, user_id))
 
         conn.commit()
 

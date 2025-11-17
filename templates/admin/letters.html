@@ -33,20 +33,54 @@
         </tr>
       </thead>
       <tbody>
-        {% for l in letters %}
-        <tr>
-          <td>{{ l.id }}</td>
-          <td>{{ l.user_id }}</td>
-          <td>{{ l.name }}</td>
-          <td>{{ l.letter_type }}</td>
-          <td>{{ l.to_country }}</td>
-          <td>{{ l.from_country }}</td>
-          <td>{{ l.sent_date }}</td>
-          <td>{{ l.received_date }}</td>
-          <td>{{ l.tracking }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
+  {% for l in letters %}
+  <tr>
+    <td>{{ l.id }}</td>
+
+    <td>
+
+  {% set u = users_map.get(l.user_id) %}
+  {% if u %}
+
+  <a href="{{ url_for('admin_users') }}#user-{{ l.user_id }}"
+     class="d-inline-flex align-items-center text-decoration-none"
+     data-bs-toggle="tooltip"
+     title="{{ u.email }}">
+
+      <!-- Avatar -->
+      <img src="{{ url_for('static', filename='avatars/' ~ u.avatar) }}"
+           class="rounded-circle me-2"
+           style="width:28px; height:28px; object-fit:cover;">
+
+      <!-- Name badge -->
+      <span class="badge text-bg-primary">
+          {{ u.name }}
+      </span>
+
+      <!-- Admin badge -->
+      {% if u.is_admin %}
+      <span class="badge text-bg-warning ms-1">
+          ⭐ Admin
+      </span>
+      {% endif %}
+  </a>
+
+  {% else %}
+      <span class="badge text-bg-secondary">Unknown User</span>
+  {% endif %}
+
+</td>
+
+    <td>{{ l.name }}</td>
+    <td>{{ l.letter_type }}</td>
+    <td>{{ l.to_country }}</td>
+    <td>{{ l.from_country }}</td>
+    <td>{{ l.sent_date }}</td>
+    <td>{{ l.received_date }}</td>
+    <td>{{ l.tracking }}</td>
+  </tr>
+  {% endfor %}
+</tbody>
     </table>
   </div>
 </div>
