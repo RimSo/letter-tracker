@@ -182,86 +182,59 @@
 
 <!-- COMPLETED -->
 <div class="tab-pane fade" id="completed">
-  <div class="table-responsive">
-    <table class="table table-striped mb-0">
-      <thead class="table-light">
-        <tr>
-          <th class="sortable" data-table="all-table" data-column="0"># <span class="sort-indicator">⇅</span></th><th>Type</th><th>Name</th><th>To</th><th>From</th>
-          <th class="sortable" data-table="completed-table" data-column="6" style="cursor:pointer;">Sent <span class="sort-indicator">⇅</span></th>
-          <th class="sortable" data-table="completed-table" data-column="7" style="cursor:pointer;">Received <span class="sort-indicator">⇅</span></th>
-          <th>Tracking</th><th>📎</th>
-        </tr>
-      </thead>
-      <tbody id="completed-table">
-{% for l in completed_letters %}
-<tr {% if loop.index > 5 %}class="extra-row d-none"{% endif %}>
+  <form method="POST" action="{{ url_for('bulk_reset') }}" id="bulkResetForm">
 
-    <td>{{ l.id }}</td>
-    <td>{{ l.letter_type }}</td>
-    <td>{{ l.name }}</td>
-    <td>{{ l.to_country }}</td>
-    <td>{{ l.from_country }}</td>
+    <div class="d-flex justify-content-between mb-2">
+      <div>
+        <input type="checkbox" id="selectAllCompleted"> Select All
+      </div>
 
-    <td>{{ l.sent_date and l.sent_date.strftime('%d/%m/%Y') or '' }}</td>
-    <td>{{ l.received_date and l.received_date.strftime('%d/%m/%Y') or '' }}</td>
+      <button type="submit" class="btn btn-warning btn-sm" id="bulkResetBtn" disabled>
+        Reset Selected to Draft
+      </button>
+    </div>
 
-    <td>
-        {% if l.tracking %}
-            <a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>
-        {% endif %}
-    </td>
+    <div class="table-responsive">
+      <table class="table table-striped mb-0">
+        <thead class="table-light">
+          <tr>
+            <th><input type="checkbox" id="selectAllCompleted2"></th>
+            <th>ID</th>
+            <th>Type</th>
+            <th>Name</th>
+            <th>To</th>
+            <th>From</th>
+            <th>Sent</th>
+            <th>Received</th>
+            <th>📎</th>
+          </tr>
+        </thead>
 
-    <td>
-        {% if l.attachment_path %}
-            <a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>
-        {% endif %}
-    </td>
+        <tbody id="completed-table">
+          {% for l in completed_letters %}
+          <tr>
+            <td>
+              <input type="checkbox" name="selected_ids" value="{{ l.id }}" class="completedCheck">
+            </td>
 
-    <!-- ⭐ NEW Reset to Draft column ⭐ -->
-    <td>
-        <form method="POST"
-      action="{{ url_for('reset_letter_to_draft', letter_id=l.id) }}"
-      class="d-inline"
-      onsubmit="return confirm('Move this letter back to Draft?');">
-    <button class="btn btn-sm btn-warning">Reset</button>
-</form>
-    </td>
+            <td>{{ l.id }}</td>
+            <td>{{ l.letter_type }}</td>
+            <td>{{ l.name }}</td>
+            <td>{{ l.to_country }}</td>
+            <td>{{ l.from_country }}</td>
+            <td>{{ l.sent_date and l.sent_date.strftime('%d/%m/%Y') or '' }}</td>
+            <td>{{ l.received_date and l.received_date.strftime('%d/%m/%Y') or '' }}</td>
+            <td>{% if l.attachment_path %}
+              <a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
 
-</tr>
-{% endfor %}
-</tbody>
-    </table>
-  </div>
-  {% if completed_letters|length > 5 %}
-  <div class="card-footer text-center"><button class="btn btn-sm btn-outline-secondary" id="toggle-completed">Show All</button></div>
-  {% endif %}
-</div>
-
-<!-- DRAFT -->
-<div class="tab-pane fade" id="draft">
-  <div class="table-responsive">
-    <table class="table table-striped mb-0">
-      <thead class="table-light">
-        <tr>
-          <th class="sortable" data-table="all-table" data-column="0"># <span class="sort-indicator">⇅</span></th><th>Type</th><th>Name</th><th>To</th><th>From</th><th>Sent</th><th>Tracking</th><th>📎</th>
-        </tr>
-      </thead>
-      <tbody id="draft-table">
-        {% for l in draft_letters %}
-        <tr {% if loop.index > 5 %}class="extra-row d-none"{% endif %}>
-          <td>{{ l.id }}</td><td>{{ l.letter_type }}</td><td>{{ l.name }}</td><td>{{ l.to_country }}</td><td>{{ l.from_country }}</td>
-          <td>{{ l.sent_date and l.sent_date.strftime('%d/%m/%Y') or '' }}</td>
-          <td>{% if l.tracking %}<a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>{% endif %}</td>
-          <td>{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>{% endif %}</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% if draft_letters|length > 5 %}
-  <div class="card-footer text-center"><button class="btn btn-sm btn-outline-secondary" id="toggle-draft">Show All</button></div>
-  {% endif %}
-</div>
-
+      </table>
+    </div>
+  </form>
 </div>
 
 <script>
@@ -327,6 +300,37 @@ document.addEventListener("DOMContentLoaded", () => {
   toggleSection("toggle-receiving", "receiving-table");
   toggleSection("toggle-completed", "completed-table");
   toggleSection("toggle-draft", "draft-table");
+});
+</script>
+    <script>
+document.addEventListener("DOMContentLoaded", function () {
+
+  const master1 = document.getElementById("selectAllCompleted");
+  const master2 = document.getElementById("selectAllCompleted2");
+  const checkboxes = document.querySelectorAll(".completedCheck");
+  const bulkBtn = document.getElementById("bulkResetBtn");
+
+  function updateButton() {
+    const anyChecked = [...checkboxes].some(cb => cb.checked);
+    bulkBtn.disabled = !anyChecked;
+  }
+
+  function toggleAll(master) {
+    checkboxes.forEach(cb => cb.checked = master.checked);
+    master1.checked = master.checked;
+    master2.checked = master.checked;
+    updateButton();
+  }
+
+  master1.addEventListener("change", () => toggleAll(master1));
+  master2.addEventListener("change", () => toggleAll(master2));
+
+  checkboxes.forEach(cb =>
+    cb.addEventListener("change", () => {
+      updateButton();
+    })
+  );
+
 });
 </script>
 {% endblock %}

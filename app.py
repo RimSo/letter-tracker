@@ -722,6 +722,30 @@ def reset_letter_to_draft(letter_id):
     flash("Letter moved back to Draft.", "warning")
     return redirect(url_for('index'))
 
+@app.route("/bulk-reset", methods=["POST"])
+@login_required
+def bulk_reset():
+    ids = request.form.getlist("selected_ids")
+
+    if not ids:
+        flash("No letters selected.", "warning")
+        return redirect(url_for("index"))
+
+    letters = Letter.query.filter(Letter.id.in_(ids)).all()
+
+    for letter in letters:
+        # Allow owner OR admin
+        if letter.user_id != current_user.id and not current_user.is_admin:
+            continue  # silently skip not owned letters
+
+        letter.is_completed = False
+        letter.status = "Draft"
+        letter.received_date = None
+
+    db.session.commit()
+    flash(f"{len(letters)} letters moved back to Draft.", "success")
+    return redirect(url_for("index"))
+
 # ---------------------------------------------------------------------
 # Auth: register / login / logout / verify / forgot / reset / profile
 # ---------------------------------------------------------------------
