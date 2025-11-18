@@ -193,15 +193,43 @@
         </tr>
       </thead>
       <tbody id="completed-table">
-        {% for l in completed_letters %}
-        <tr {% if loop.index > 5 %}class="extra-row d-none"{% endif %}>
-          <td>{{ l.id }}</td><td>{{ l.letter_type }}</td><td>{{ l.name }}</td><td>{{ l.to_country }}</td><td>{{ l.from_country }}</td>
-          <td>{{ l.sent_date and l.sent_date.strftime('%d/%m/%Y') or '' }}</td>
-          <td>{{ l.received_date and l.received_date.strftime('%d/%m/%Y') or '' }}</td>
-          <td>{% if l.tracking %}<a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>{% endif %}</td>
-          <td>{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>{% endif %}</td></tr>
-        {% endfor %}
-      </tbody>
+{% for l in completed_letters %}
+<tr {% if loop.index > 5 %}class="extra-row d-none"{% endif %}>
+
+    <td>{{ l.id }}</td>
+    <td>{{ l.letter_type }}</td>
+    <td>{{ l.name }}</td>
+    <td>{{ l.to_country }}</td>
+    <td>{{ l.from_country }}</td>
+
+    <td>{{ l.sent_date and l.sent_date.strftime('%d/%m/%Y') or '' }}</td>
+    <td>{{ l.received_date and l.received_date.strftime('%d/%m/%Y') or '' }}</td>
+
+    <td>
+        {% if l.tracking %}
+            <a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>
+        {% endif %}
+    </td>
+
+    <td>
+        {% if l.attachment_path %}
+            <a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>
+        {% endif %}
+    </td>
+
+    <!-- ⭐ NEW Reset to Draft column ⭐ -->
+    <td>
+        <form method="POST"
+      action="{{ url_for('reset_letter_to_draft', letter_id=l.id) }}"
+      class="d-inline"
+      onsubmit="return confirm('Move this letter back to Draft?');">
+    <button class="btn btn-sm btn-warning">Reset</button>
+</form>
+    </td>
+
+</tr>
+{% endfor %}
+</tbody>
     </table>
   </div>
   {% if completed_letters|length > 5 %}

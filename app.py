@@ -628,6 +628,24 @@ def edit(letter_id):
 
     return render_template("edit.html", letter=letter)
 
+@app.route("/reset_draft/<int:letter_id>", methods=["POST"])
+@login_required
+def reset_draft(letter_id):
+    letter = Letter.query.get_or_404(letter_id)
+
+    # Security check: user can only edit their own letters
+    if letter.user_id != current_user.id:
+        abort(403)
+
+    # Reset fields
+    letter.is_completed = False
+    letter.status = "Draft"
+    letter.received_date = None
+    letter.days = None
+
+    db.session.commit()
+    flash("Letter moved back to Draft.", "info")
+    return redirect(url_for("index") + "#completed")
 
 @app.route('/update/<int:letter_id>', methods=['POST'])
 @login_required
@@ -684,6 +702,24 @@ def complete(letter_id):
         flash('Marked as completed.', 'success')
     else:
         flash('Cannot complete: set both Sent and Received dates first.', 'warning')
+    return redirect(url_for('index'))
+
+@app.route('/reset/<int:letter_id>', methods=['POST'])
+@login_required
+def reset_letter_to_draft(letter_id):
+    letter = Letter.query.get_or_404(letter_id)
+
+    # Allow owner OR admin
+    if letter.user_id != current_user.id and not current_user.is_admin:
+        abort(403)
+
+    # Reset fields
+    letter.is_completed = False
+    letter.status = "Draft"
+    letter.received_date = None
+
+    db.session.commit()
+    flash("Letter moved back to Draft.", "warning")
     return redirect(url_for('index'))
 
 # ---------------------------------------------------------------------
