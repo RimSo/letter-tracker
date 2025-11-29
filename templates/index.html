@@ -128,7 +128,7 @@
         <tr>
           <th class="sortable" data-table="all-table" data-column="0"># <span class="sort-indicator">⇅</span></th><th>Name</th><th>Nick</th><th>To</th><th>From</th>
           <th class="sortable" data-table="sending-table" data-column="4" style="cursor:pointer;">Sent <span class="sort-indicator">⇅</span></th>
-          <th>Since</th><th>Tracking</th><th>📎</th>
+          <th>Since</th><th>Tracking</th><th>📎</th><th>Actions</th>
         </tr>
       </thead>
       <tbody id="sending-table">
@@ -138,7 +138,9 @@
           <td>{{ l.sent_date and l.sent_date.strftime('%d/%m/%Y') or '' }}</td>
           <td>{% if l.sent_date %}{{ (now().date() - l.sent_date).days }}{% endif %}</td>
           <td>{% if l.tracking %}<a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>{% endif %}</td>
-          <td>{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>{% endif %}</td></tr>
+          <td>{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>{% endif %}</td>
+          <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit', letter_id=l.id) }}">Edit</a></td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
@@ -156,7 +158,7 @@
         <tr>
           <th class="sortable" data-table="all-table" data-column="0"># <span class="sort-indicator">⇅</span></th><th>Name</th><th>From</th><th>To</th>
           <!--th class="sortable" data-table="receiving-table" data-column="4" style="cursor:pointer;">Received <span class="sort-indicator">⇅</span></th-->
-          <th>Since Sending</th><th class="sortable" data-table="all-table" data-column="8">Status <span class="sort-indicator">⇅</span></th><th>Tracking</th><th>📎</th>
+          <th>Since Sending</th><th class="sortable" data-table="all-table" data-column="8">Status <span class="sort-indicator">⇅</span></th><th>Tracking</th><th>📎</th><th>Actions</th>
         </tr>
       </thead>
       <tbody id="receiving-table">
@@ -168,9 +170,29 @@
             <td>{{ l.to_country }}</td>
           <!--td>{{ l.received_date and l.received_date.strftime('%d/%m/%Y') or '' }}</td-->
           <td>{% if l.sent_date %}{{ (now().date() - l.sent_date).days }}{% endif %}</td>
+          <td>
+  {% if l.days is not none %}
+
+    {% if l.days > 30 %}
+      <span class="badge bg-danger">{{ l.days }} days</span>
+
+    {% elif l.days > 15 %}
+      <span class="badge bg-warning text-dark">{{ l.days }} days</span>
+
+    {% else %}
+      <span class="badge bg-success">{{ l.days }} days</span>
+
+    {% endif %}
+
+  {% else %}
+    -
+  {% endif %}
+</td>
           <td>{% if l.status == 'Draft' %}<span class="badge bg-secondary">Draft</span>{% else %}<span class="badge bg-info text-dark">Active</span>{% endif %}</td>
           <td>{% if l.tracking %}<a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>{% endif %}</td>
-          <td>{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>{% endif %}</td></tr>
+          <td>{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>{% endif %}</td>
+          <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit', letter_id=l.id) }}">Edit</a></td>
+        </tr>
         {% endfor %}
       </tbody>
     </table>
