@@ -1,52 +1,87 @@
 {% extends 'base.html' %}
 {% block content %}
 
-<div class="card shadow-sm">
-  <div class="card-header bg-white"><strong>Add Letter</strong></div>
-  <div class="card-body">
-    <form method="post" action="/add" class="row g-3" enctype="multipart/form-data">
-      <div class="col-md-2">
-        <label class="form-label">Type *</label>
-        <select class="form-select" name="letter_type" required>
-          <option value="Sending">Sending</option>
-          <option value="Receiving">Receiving</option>
-        </select>
-      </div>
-      <div class="col-md-3"><label class="form-label">Nickname</label>
-        <input type="text" class="form-control" name="nickname">
-      </div>
-      <div class="col-md-4"><label class="form-label">Name *</label>
-        <input type="text" class="form-control" name="name" required>
-      </div>
-      <div class="col-md-3"><label class="form-label">To Country *</label>
-        <select class="form-select" name="to_country" required>
-          {% for c in COUNTRIES %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="col-md-3"><label class="form-label">From</label>
-        <select class="form-select" name="from_country">
-          {% for c in COUNTRIES %}
-          <option value="{{ c }}" {% if c == 'Qatar' %}selected{% endif %}>{{ c }}</option>{% endfor %}
-        </select>
-      </div>
-      <div class="col-md-3"><label class="form-label">Sent Date</label>
-        <input type="date" class="form-control" name="sent_date">
-      </div>
-      <div class="col-md-3"><label class="form-label">Received Date</label>
-        <input type="date" class="form-control" name="received_date">
-      </div>
-      <div class="col-md-3"><label class="form-label">Tracking</label>
-        <input type="text" class="form-control" name="tracking" placeholder="RR... or Normal">
-      </div>
-      <div class="col-md-4"><label class="form-label">Attachment *</label>
-        <input type="file" class="form-control" name="attachment" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" required>
-        <div class="form-text">Allowed: PDF, JPG, PNG, DOC, DOCX • Max {{ 10 }} MB</div>
-      </div>
-      <div class="col-md-2 d-grid">
-        <label class="form-label">&nbsp;</label>
-        <button class="btn btn-success">Add</button>
-      </div>
-    </form>
+<style>
+  .arrow-icon {
+    transition: transform .25s;
+    font-size: 14px;
+  }
+</style>
+
+<div class="card shadow-sm mb-3">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center"
+       data-bs-toggle="collapse" data-bs-target="#addLetterCollapse" style="cursor:pointer;">
+    <strong>Add Letter</strong>
+    <span class="arrow-icon">&#9656;</span>
+  </div>
+
+  <div id="addLetterCollapse" class="collapse">
+    <div class="card-body">
+      <form method="post" action="/add" class="row g-3" enctype="multipart/form-data">
+
+        <div class="col-md-2">
+          <label class="form-label">Type *</label>
+          <select class="form-select" name="letter_type" required>
+            <option value="Sending">Sending</option>
+            <option value="Receiving">Receiving</option>
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Nickname</label>
+          <input type="text" class="form-control" name="nickname">
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Name *</label>
+          <input type="text" class="form-control" name="name" required>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">To Country *</label>
+          <select class="form-select" name="to_country" required>
+            {% for c in COUNTRIES %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">From</label>
+          <select class="form-select" name="from_country">
+            {% for c in COUNTRIES %}
+            <option value="{{ c }}" {% if c == 'Qatar' %}selected{% endif %}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Sent Date</label>
+          <input type="date" class="form-control" name="sent_date">
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Received Date</label>
+          <input type="date" class="form-control" name="received_date">
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Tracking</label>
+          <input type="text" class="form-control" name="tracking" placeholder="RR... or Normal">
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Attachment *</label>
+          <input type="file" class="form-control" name="attachment"
+                 accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" required>
+          <div class="form-text">Allowed: PDF, JPG, PNG, DOC, DOCX • Max {{ 10 }} MB</div>
+        </div>
+
+        <div class="col-md-2 d-grid">
+          <label class="form-label">&nbsp;</label>
+          <button class="btn btn-success">Add</button>
+        </div>
+
+      </form>
+    </div>
   </div>
 </div>
 
@@ -374,6 +409,22 @@ document.addEventListener("DOMContentLoaded", function () {
     })
   );
 
+});
+</script>
+
+    <script>
+document.addEventListener("DOMContentLoaded", () => {
+  const header = document.querySelector('[data-bs-target="#addLetterCollapse"]');
+  const arrow = header.querySelector(".arrow-icon");
+  const collapse = document.getElementById("addLetterCollapse");
+
+  collapse.addEventListener("shown.bs.collapse", () => {
+    arrow.style.transform = "rotate(90deg)";
+  });
+
+  collapse.addEventListener("hidden.bs.collapse", () => {
+    arrow.style.transform = "rotate(0deg)";
+  });
 });
 </script>
 {% endblock %}
