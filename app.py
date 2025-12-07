@@ -59,12 +59,16 @@ USERS_DB = os.path.join(BASE_DIR, "users.sqlite")
 # Users (SQLite)
 # ---------------------------------------------------------------------
 class User(UserMixin):
-    def __init__(self, id_, email, name, avatar_path=None, is_admin=0):
+    def __init__(self, id_, email, name, avatar_path=None, is_admin=0, gender=None, first_name=None, middle_name=None, surname=None):
         self.id = str(id_)
         self.email = email
-        self.name = name
+        self.name = name  # Keep for backward compatibility
         self.avatar_path = avatar_path
         self.is_admin = bool(is_admin)
+        self.gender = gender
+        self.first_name = first_name or name  # Fallback to name
+        self.middle_name = middle_name
+        self.surname = surname
 
 
 def _users_conn():
@@ -113,6 +117,15 @@ with _users_conn() as conn:
 
     if "last_password_change" not in cols:
         conn.execute("ALTER TABLE users ADD COLUMN last_password_change TIMESTAMP")
+    if "gender" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN gender TEXT")
+    if "first_name" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN first_name TEXT")
+    if "middle_name" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN middle_name TEXT")
+    if "surname" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN surname TEXT")
+
     conn.commit()
 
 
@@ -122,12 +135,11 @@ def _bootstrap_auth_once():
         ensure_users_table()
         app._auth_initialized = True
 
-
 @login_manager.user_loader
 def load_user(user_id):
     with _users_conn() as conn:
         row = conn.execute(
-            "SELECT id, email, name, avatar_path, is_admin FROM users WHERE id = ?",
+            "SELECT id, email, name, avatar_path, is_admin, gender, first_name, middle_name, surname FROM users WHERE id = ?",
             (user_id,)
         ).fetchone()
     if row:
@@ -136,7 +148,8 @@ def load_user(user_id):
             email=row["email"],
             name=row["name"],
             avatar_path=row["avatar_path"],
-            is_admin=row["is_admin"]
+            is_admin=row["is_admin"],
+            gender=row["gender"] if "gender" in row.keys() else None
         )
     return None
 
@@ -969,15 +982,25 @@ def delete_avatar():
 @login_required
 def profile():
     if request.method == "POST":
-        name = request.form.get("name").strip()
+        first_name = (request.form.get("first_name") or "").strip()
+        middle_name = (request.form.get("middle_name") or "").strip()
+        surname = (request.form.get("surname") or "").strip()
+        gender = request.form.get("gender")
         new_pass = request.form.get("new_password") or ""
         confirm = request.form.get("confirm_password") or ""
 
-        # --- Update name ---
+        # --- Update name fields and gender ---
         with _users_conn() as conn:
-            conn.execute("UPDATE users SET name = ? WHERE id = ?", (name, current_user.id))
+            conn.execute(
+                "UPDATE users SET first_name = ?, middle_name = ?, surname = ?, gender = ? WHERE id = ?",
+                (first_name, middle_name, surname, gender, current_user.id)
+            )
             conn.commit()
-        current_user.name = name
+
+        current_user.first_name = first_name
+        current_user.middle_name = middle_name
+        current_user.surname = surname
+        current_user.gender = gender
 
         # --- Update password ---
         if new_pass:
@@ -996,25 +1019,21 @@ def profile():
                 conn.commit()
             flash("Password updated.", "success")
 
-        # --- Update avatar (resize 256px, circle crop, SVG/WebP support, delete old, 1MB limit) ---
+        # --- Update avatar ---
         file = request.files.get("avatar")
         if file and file.filename:
-            # Read file into memory
             data = file.read()
 
-            # 1 MB size check
-            if len(data) > (1 * 1024 * 1024):  # 1 MB
+            if len(data) > (1 * 1024 * 1024):
                 flash("Avatar must be at most 1 MB.", "danger")
                 return redirect(url_for("profile"))
 
-            # Allowed extensions
             ext = file.filename.rsplit(".", 1)[1].lower()
             allowed = {"jpg", "jpeg", "png", "gif", "webp", "svg"}
             if ext not in allowed:
-                flash("Invalid avatar type. Allowed: JPG, PNG, GIF, WEBP, SVG.", "danger")
+                flash("Invalid avatar type.", "danger")
                 return redirect(url_for("profile"))
 
-            # Remove previous avatar file if exists
             if getattr(current_user, "avatar_path", None):
                 old_path = os.path.join(AVATAR_DIR, current_user.avatar_path)
                 try:
@@ -1023,15 +1042,12 @@ def profile():
                 except OSError:
                     pass
 
-            # --- If SVG, save directly without processing ---
             if ext == "svg":
                 filename = f"user_{current_user.id}.svg"
                 save_path = os.path.join(AVATAR_DIR, filename)
                 with open(save_path, "wb") as f:
                     f.write(data)
-
             else:
-                # --- Raster image: resize + circle crop ---
                 try:
                     img = Image.open(io.BytesIO(data))
                 except Exception:
@@ -1041,19 +1057,15 @@ def profile():
                 img = img.convert("RGBA")
                 img = ImageOps.fit(img, (256, 256), Image.LANCZOS)
 
-                # Create circle mask
                 mask = Image.new("L", (256, 256), 0)
                 draw = ImageDraw.Draw(mask)
                 draw.ellipse((0, 0, 256, 256), fill=255)
                 img.putalpha(mask)
 
-                # Save final PNG regardless of original format
                 filename = f"user_{current_user.id}.png"
                 save_path = os.path.join(AVATAR_DIR, filename)
                 img.save(save_path, format="PNG")
 
-
-            # Save to DB
             with _users_conn() as conn:
                 conn.execute(
                     "UPDATE users SET avatar_path = ? WHERE id = ?",
