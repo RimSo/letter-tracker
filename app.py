@@ -285,6 +285,22 @@ def admin_dashboard():
         completed=completed
     )
 
+
+@app.route('/admin/letters/<int:letter_id>/delete', methods=['POST'])
+@login_required
+def delete_letter(letter_id):
+    if not current_user.is_admin:
+        flash('Access denied.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    letter = Letter.query.get_or_404(letter_id)
+    db.session.delete(letter)
+    db.session.commit()
+
+    flash('Letter deleted successfully.', 'success')
+    return redirect(url_for('admin_letters'))
+
+
 @app.route("/admin/users")
 @login_required
 @admin_required

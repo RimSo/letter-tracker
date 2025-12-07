@@ -30,6 +30,7 @@
           <th>Sent</th>
           <th>Received</th>
           <th>Tracking</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -78,6 +79,15 @@
     <td>{{ l.sent_date }}</td>
     <td>{{ l.received_date }}</td>
     <td>{{ l.tracking }}</td>
+    <td>
+      <form method="POST" action="{{ url_for('delete_letter', letter_id=l.id) }}"
+            onsubmit="return confirm('Are you sure you want to delete this letter?');"
+            class="d-inline">
+         <button class="btn btn-sm btn-danger">
+                  <i class="bi bi-trash"></i>
+              </button>
+      </form>
+    </td>
   </tr>
   {% endfor %}
 </tbody>
