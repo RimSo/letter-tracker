@@ -20,6 +20,7 @@
         display: flex;
         flex-direction: column;
         min-height: 100vh;
+        padding-top: 60px; /* Adjust based on your navbar height */
       }
 
       main {
@@ -31,7 +32,7 @@
   <body class="bg-light">
 
    <!-- SINGLE NAVBAR (fixed) -->
-<nav class="navbar navbar-light bg-white border-bottom px-3">
+<nav class="navbar navbar-light bg-white border-bottom px-3 fixed-top">
   <div class="container-fluid d-flex justify-content-between align-items-center">
 
     <!-- LEFT: Logo + Title -->
@@ -275,10 +276,10 @@ document.addEventListener("DOMContentLoaded", function () {
       <div class="row">
         <div class="col-md-6">
           <h5>Letter Tracker</h5>
-          <p class="text-muted">Track and manage your letters efficiently</p>
+          <p class="text-white">Track and manage your letters efficiently</p>
         </div>
         <div class="col-md-6 text-md-end">
-          <p class="mb-0 text-muted">&copy; 2025 All rights reserved.</p>
+          <p class="mb-0 text-white">&copy; 2025 All rights reserved.</p>
         </div>
       </div>
     </div>

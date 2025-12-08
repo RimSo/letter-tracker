@@ -123,23 +123,49 @@
       <table class="table table-hover mb-0">
         <thead class="table-light">
           <tr>
-            <th class="sortable" data-table="all-table" data-column="0"># <span class="sort-indicator">⇅</span></th><th>Type</th><th>Nickname</th><th>Name</th><th>To</th><th>From</th>
+            <th class="sortable" data-table="all-table" data-column="0"># <span class="sort-indicator">⇅</span></th>
+            <th>Type</th>
+            <th>Nickname</th>
+            <th>Name</th>
+            <th>To</th>
+            <th>From</th>
             <th class="sortable" data-table="all-table" data-column="6" style="cursor:pointer;">Sent <span class="sort-indicator">⇅</span></th>
             <th class="sortable" data-table="all-table" data-column="7" style="cursor:pointer;">Received <span class="sort-indicator">⇅</span></th>
-            <th class="sortable" data-table="all-table" data-column="8">Status <span class="sort-indicator">⇅</span></th><th>Tracking</th><th style="text-align:center;">📎</th><th>Actions</th>
+            <th class="sortable" data-table="all-table" data-column="8">Status <span class="sort-indicator">⇅</span></th>
+            <th>Days</th>
+            <th>Tracking</th>
+            <th style="text-align:center;">📎</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody id="all-table">
           {% for l in letters %}
           <tr {% if loop.index > 5 %}class="extra-row d-none"{% endif %}>
-            <td>{{ l.id }}</td><td>{{ l.letter_type }}</td><td>{{ l.nickname or '' }}</td><td>{{ l.name }}</td>
-            <td>{{ l.to_country }}</td><td>{{ l.from_country }}</td>
+            <td>{{ l.id }}</td>
+            <td>{{ l.letter_type }}</td>
+            <td>{{ l.nickname or '' }}</td>
+            <td>{{ l.name }}</td>
+            <td>{{ l.to_country }}</td>
+            <td>{{ l.from_country }}</td>
             <td>{{ l.sent_date and l.sent_date.strftime('%d/%m/%Y') or '' }}</td>
             <td>{{ l.received_date and l.received_date.strftime('%d/%m/%Y') or '' }}</td>
             <td>
               {% if l.is_completed %}<span class="badge bg-success">Completed</span>
               {% elif l.status == 'Draft' %}<span class="badge bg-secondary">Draft</span>
               {% else %}<span class="badge bg-info text-dark">Active</span>{% endif %}
+            </td>
+            <td>
+              {% if l.days is not none %}
+                {% if l.days > 30 %}
+                  <span class="badge bg-danger">{{ l.days }} days</span>
+                {% elif l.days > 15 %}
+                  <span class="badge bg-warning text-dark">{{ l.days }} days</span>
+                {% else %}
+                  <span class="badge bg-success">{{ l.days }} days</span>
+                {% endif %}
+              {% else %}
+                -
+              {% endif %}
             </td>
             <td>{% if l.tracking %}<a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>{% else %}-{% endif %}</td>
             <td class="text-center">{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}" target="_blank">📎</a>{% else %}-{% endif %}</td>
@@ -162,7 +188,7 @@
       <thead class="table-light">
         <tr>
           <th class="sortable" data-table="all-table" data-column="0"># <span class="sort-indicator">⇅</span></th><th>Name</th><th>Nick</th><th>To</th><th>From</th>
-          <th class="sortable" data-table="sending-table" data-column="4" style="cursor:pointer;">Sent <span class="sort-indicator">⇅</span></th>
+          <th class="sortable" data-table="sending-table" data-column="4" style="cursor:pointer;">Sent at<span class="sort-indicator">⇅</span></th>
           <th>Since</th><th>Tracking</th><th>📎</th><th>Actions</th>
         </tr>
       </thead>
@@ -171,7 +197,20 @@
         <tr {% if loop.index > 5 %}class="extra-row d-none"{% endif %}>
           <td>{{ l.id }}</td><td>{{ l.name }}</td><td>{{ l.nickname or '' }}</td><td>{{ l.to_country }}</td><td>{{ l.from_country }}</td>
           <td>{{ l.sent_date and l.sent_date.strftime('%d/%m/%Y') or '' }}</td>
-          <td>{% if l.sent_date %}{{ (now().date() - l.sent_date).days }}{% endif %}</td>
+          <td>
+            {% if l.sent_date %}
+              {% set since_days = (now().date() - l.sent_date).days %}
+              {% if since_days > 30 %}
+                <span class="badge bg-danger">{{ since_days }} days</span>
+              {% elif since_days > 15 %}
+                <span class="badge bg-warning text-dark">{{ since_days }} days</span>
+              {% else %}
+                <span class="badge bg-success">{{ since_days }} days</span>
+              {% endif %}
+            {% else %}
+              -
+            {% endif %}
+          </td>
           <td>{% if l.tracking %}<a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>{% endif %}</td>
           <td>{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>{% endif %}</td>
           <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit', letter_id=l.id) }}">Edit</a></td>
@@ -192,7 +231,7 @@
       <thead class="table-light">
         <tr>
           <th class="sortable" data-table="all-table" data-column="0"># <span class="sort-indicator">⇅</span></th><th>Name</th><th>From</th><th>To</th>
-          <!--th class="sortable" data-table="receiving-table" data-column="4" style="cursor:pointer;">Received <span class="sort-indicator">⇅</span></th-->
+          <th class="sortable" data-table="receiving-table" data-column="4" style="cursor:pointer;">Sent at<span class="sort-indicator">⇅</span></th>
           <th>Since Sending</th><th class="sortable" data-table="all-table" data-column="8">Status <span class="sort-indicator">⇅</span></th><th>Tracking</th><th>📎</th><th>Actions</th>
         </tr>
       </thead>
@@ -200,29 +239,24 @@
         {% for l in receiving_letters %}
         <tr {% if loop.index > 5 %}class="extra-row d-none"{% endif %}>
           <td>{{ l.id }}</td>
-            <td>{{ l.name }}</td>
-            <td>{{ l.from_country }}</td>
-            <td>{{ l.to_country }}</td>
-          <!--td>{{ l.received_date and l.received_date.strftime('%d/%m/%Y') or '' }}</td-->
-          <td>{% if l.sent_date %}{{ (now().date() - l.sent_date).days }}{% endif %}</td>
+          <td>{{ l.name }}</td>
+          <td>{{ l.from_country }}</td>
+          <td>{{ l.to_country }}</td>
+            <td>{{ l.sent_date and l.sent_date.strftime('%d/%m/%Y') or '' }}</td>
           <td>
-  {% if l.days is not none %}
-
-    {% if l.days > 30 %}
-      <span class="badge bg-danger">{{ l.days }} days</span>
-
-    {% elif l.days > 15 %}
-      <span class="badge bg-warning text-dark">{{ l.days }} days</span>
-
-    {% else %}
-      <span class="badge bg-success">{{ l.days }} days</span>
-
-    {% endif %}
-
-  {% else %}
-    -
-  {% endif %}
-</td>
+            {% if l.sent_date %}
+              {% set since_days = (now().date() - l.sent_date).days %}
+              {% if since_days > 30 %}
+                <span class="badge bg-danger">{{ since_days }} days</span>
+              {% elif since_days > 15 %}
+                <span class="badge bg-warning text-dark">{{ since_days }} days</span>
+              {% else %}
+                <span class="badge bg-success">{{ since_days }} days</span>
+              {% endif %}
+            {% else %}
+              -
+            {% endif %}
+          </td>
           <td>{% if l.status == 'Draft' %}<span class="badge bg-secondary">Draft</span>{% else %}<span class="badge bg-info text-dark">Active</span>{% endif %}</td>
           <td>{% if l.tracking %}<a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>{% endif %}</td>
           <td>{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>{% endif %}</td>
