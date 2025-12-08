@@ -230,7 +230,7 @@
     <table class="table table-striped mb-0">
       <thead class="table-light">
         <tr>
-          <th class="sortable" data-table="all-table" data-column="0"># <span class="sort-indicator">⇅</span></th><th>Name</th><th>From</th><th>To</th>
+          <th class="sortable" data-table="all-table" data-column="0"># <span class="sort-indicator">⇅</span></th><th>Name</th><th>Nick</th><th>From</th><th>To</th>
           <th class="sortable" data-table="receiving-table" data-column="4" style="cursor:pointer;">Sent at<span class="sort-indicator">⇅</span></th>
           <th>Since Sending</th><th class="sortable" data-table="all-table" data-column="8">Status <span class="sort-indicator">⇅</span></th><th>Tracking</th><th>📎</th><th>Actions</th>
         </tr>
@@ -240,6 +240,7 @@
         <tr {% if loop.index > 5 %}class="extra-row d-none"{% endif %}>
           <td>{{ l.id }}</td>
           <td>{{ l.name }}</td>
+          <td>{{ l.nickname or '' }}</td>
           <td>{{ l.from_country }}</td>
           <td>{{ l.to_country }}</td>
             <td>{{ l.sent_date and l.sent_date.strftime('%d/%m/%Y') or '' }}</td>

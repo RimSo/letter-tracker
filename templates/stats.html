@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="container mt-4">
+  <h2 class="mb-4">📊 Statistics</h2>
+
+  <div class="row g-4">
+    <div class="col-md-3">
+      <div class="card text-center shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title text-muted">Total Letters</h5>
+          <h2 class="display-4">{{ total_letters }}</h2>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card text-center shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title text-muted">Sent</h5>
+          <h2 class="display-4 text-primary">{{ total_sent }}</h2>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card text-center shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title text-muted">Received</h5>
+          <h2 class="display-4 text-success">{{ total_received }}</h2>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card text-center shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title text-muted">Completed</h5>
+          <h2 class="display-4 text-info">{{ total_completed }}</h2>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4 mt-3">
+    <div class="col-md-3">
+      <div class="card text-center shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title text-muted">Sending</h5>
+          <h2 class="display-4 text-warning">{{ total_sending }}</h2>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card text-center shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title text-muted">Receiving</h5>
+          <h2 class="display-4 text-danger">{{ total_receiving }}</h2>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-3">
+      <div class="card text-center shadow-sm">
+        <div class="card-body">
+          <h5 class="card-title text-muted">Nicknames</h5>
+          <h2 class="display-4">{{ total_nicknames }}</h2>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row mt-5">
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white">
+          <strong>Letter Types Distribution</strong>
+        </div>
+        <div class="card-body">
+          <canvas id="typeChart" style="max-height: 300px;"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-header bg-white">
+          <strong>Status Distribution</strong>
+        </div>
+        <div class="card-body">
+          <canvas id="statusChart" style="max-height: 300px;"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const typeCtx = document.getElementById('typeChart').getContext('2d');
+  new Chart(typeCtx, {
+    type: 'pie',
+    data: {
+      labels: ['Sending', 'Receiving'],
+      datasets: [{
+        data: [{{ total_sending }}, {{ total_receiving }}],
+        backgroundColor: ['#ffc107', '#dc3545']
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true
+    }
+  });
+
+  const statusCtx = document.getElementById('statusChart').getContext('2d');
+  new Chart(statusCtx, {
+    type: 'pie',
+    data: {
+      labels: ['Sent', 'Received', 'Completed'],
+      datasets: [{
+        data: [{{ total_sent }}, {{ total_received }}, {{ total_completed }}],
+        backgroundColor: ['#0dcaf0', '#198754', '#17a2b8']
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true
+    }
+  });
+</script>
+
+{% endblock %}

@@ -1106,6 +1106,41 @@ def autocomplete():
             results.add(L.tracking)
 
     return list(results)[:10]
+
+@app.route('/stats')
+def stats():
+    letters = Letter.query.all()
+
+    total_letters = len(letters)
+    total_sent = sum(1 for l in letters if l.sent_date)
+    total_received = sum(1 for l in letters if l.received_date)
+    total_completed = sum(1 for l in letters if l.is_completed)
+    total_sending = sum(1 for l in letters if l.letter_type == 'Sending')
+    total_receiving = sum(1 for l in letters if l.letter_type == 'Receiving')
+
+    # Count unique nicknames
+    nicknames = set(l.nickname for l in letters if l.nickname)
+    total_nicknames = len(nicknames)
+
+    # Count by country
+    countries_to = {}
+    countries_from = {}
+    for l in letters:
+        countries_to[l.to_country] = countries_to.get(l.to_country, 0) + 1
+        countries_from[l.from_country] = countries_from.get(l.from_country, 0) + 1
+
+    return render_template('stats.html',
+                         total_letters=total_letters,
+                         total_sent=total_sent,
+                         total_received=total_received,
+                         total_completed=total_completed,
+                         total_sending=total_sending,
+                         total_receiving=total_receiving,
+                         total_nicknames=total_nicknames,
+                         countries_to=countries_to,
+                         countries_from=countries_from)
+
+
 # ---------------------------------------------------------------------
 # Safe startup
 # ---------------------------------------------------------------------
