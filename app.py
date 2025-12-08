@@ -1115,8 +1115,10 @@ def stats():
     total_sent = sum(1 for l in letters if l.sent_date)
     total_received = sum(1 for l in letters if l.received_date)
     total_completed = sum(1 for l in letters if l.is_completed)
-    total_sending = sum(1 for l in letters if l.letter_type == 'Sending')
-    total_receiving = sum(1 for l in letters if l.letter_type == 'Receiving')
+
+    # Count sending (letters without received_date) and receiving (letters with received_date)
+    total_sending = sum(1 for l in letters if not l.received_date)
+    total_receiving = sum(1 for l in letters if l.received_date)
 
     # Count unique nicknames
     nicknames = set(l.nickname for l in letters if l.nickname)
@@ -1139,7 +1141,6 @@ def stats():
                          total_nicknames=total_nicknames,
                          countries_to=countries_to,
                          countries_from=countries_from)
-
 
 # ---------------------------------------------------------------------
 # Safe startup
