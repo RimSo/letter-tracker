@@ -16,6 +16,10 @@
       .truncate { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       .small-pad td, .small-pad th { padding-top: .5rem; padding-bottom: .5rem; }
       .total-label { font-size: .9rem; color: #666; }
+      .arrow-icon {
+    transition: transform .25s;
+    font-size: 14px;
+  }
       body {
         display: flex;
         flex-direction: column;
@@ -23,10 +27,15 @@
         padding-top: 60px; /* Adjust based on your navbar height */
       }
 
+      .btn.position-fixed {
+    z-index: 1040 !important;
+  }
+
       main {
         flex: 1;
       }
     </style>
+
   </head>
 
   <body class="bg-light">
