@@ -149,7 +149,7 @@
           {% for l in letters %}
           <tr {% if loop.index > 5 %}class="extra-row d-none"{% endif %}>
             <td>{{ l.id }}</td>
-            <td>{{ l.letter_type }}</td>
+            <td>{% if l.is_completed %}{{ 'Sent' if l.letter_type == 'Sending' else 'Received' }}{% else %}{{ l.letter_type }}{% endif %}</td>
             <td>{{ l.nickname or '' }}</td>
             <td>{{ l.name }}</td>
             <td>{{ l.to_country }}</td>
@@ -279,6 +279,45 @@
   {% endif %}
 </div>
 
+<!-- DRAFT -->
+<div class="tab-pane fade" id="draft">
+  <div class="table-responsive">
+    <table class="table table-striped mb-0">
+      <thead class="table-light">
+        <tr>
+          <th class="sortable" data-table="draft-table" data-column="0"># <span class="sort-indicator">⇅</span></th>
+          <th>Type</th>
+          <th>Nickname</th>
+          <th>Name</th>
+          <th>To</th>
+          <th>From</th>
+          <th>Tracking</th>
+          <th>📎</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="draft-table">
+        {% for l in draft_letters %}
+        <tr {% if loop.index > 5 %}class="extra-row d-none"{% endif %}>
+          <td>{{ l.id }}</td>
+          <td>{% if l.is_completed %}{{ 'Sent' if l.letter_type == 'Sending' else 'Received' }}{% else %}{{ l.letter_type }}{% endif %}</td>
+          <td>{{ l.nickname or '' }}</td>
+          <td>{{ l.name }}</td>
+          <td>{{ l.to_country }}</td>
+          <td>{{ l.from_country }}</td>
+          <td>{% if l.tracking %}<a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>{% else %}-{% endif %}</td>
+          <td>{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>{% else %}-{% endif %}</td>
+          <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit', letter_id=l.id) }}">Edit</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if draft_letters|length > 5 %}
+  <div class="card-footer text-center"><button class="btn btn-sm btn-outline-secondary" id="toggle-draft">Show All</button></div>
+  {% endif %}
+</div>
+
 <!-- COMPLETED -->
 <div class="tab-pane fade" id="completed">
   <form method="POST" action="{{ url_for('bulk_reset') }}" id="bulkResetForm">
@@ -319,7 +358,7 @@
             </td>
 
             <td>{{ l.id }}</td>
-            <td>{{ l.letter_type }}</td>
+            <td>{% if l.is_completed %}{{ 'Sent' if l.letter_type == 'Sending' else 'Received' }}{% else %}{{ l.letter_type }}{% endif %}</td>
               <td>{{ l.nickname or '' }}</td>
             <td>{{ l.name }}</td>
               <td>{{ l.from_country }}</td>

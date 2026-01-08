@@ -80,7 +80,7 @@
           <!-- LAST LOGIN -->
           <td>
             {% if u.last_login %}
-              <span class="text-muted">{{ u.last_login }}</span>
+              <span class="text-muted">{{ u.last_login[:19] if u.last_login else 'Never' }}</span>
             {% else %}
               <span class="text-muted">Never</span>
             {% endif %}

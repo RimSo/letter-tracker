@@ -91,6 +91,10 @@
             </div>
           </div>
 
+          <!-- Date of Birth -->
+          <label class="form-label mt-3">Date of Birth</label>
+          <input type="date" name="date_of_birth" class="form-control" value="{{ current_user.date_of_birth or '' }}">
+
           <!-- Email -->
           <label class="form-label mt-3">Email</label>
           <input class="form-control" value="{{ current_user.email }}" disabled>

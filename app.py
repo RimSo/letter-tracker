@@ -59,7 +59,7 @@ USERS_DB = os.path.join(BASE_DIR, "users.sqlite")
 # Users (SQLite)
 # ---------------------------------------------------------------------
 class User(UserMixin):
-    def __init__(self, id_, email, name, avatar_path=None, is_admin=0, gender=None, first_name=None, middle_name=None, surname=None):
+    def __init__(self, id_, email, name, avatar_path=None, is_admin=0, gender=None, first_name=None, middle_name=None, surname=None, date_of_birth=None):
         self.id = str(id_)
         self.email = email
         self.name = name  # Keep for backward compatibility
@@ -69,6 +69,7 @@ class User(UserMixin):
         self.first_name = first_name or name  # Fallback to name
         self.middle_name = middle_name
         self.surname = surname
+        self.date_of_birth = date_of_birth
 
 
 def _users_conn():
@@ -125,6 +126,8 @@ with _users_conn() as conn:
         conn.execute("ALTER TABLE users ADD COLUMN middle_name TEXT")
     if "surname" not in cols:
         conn.execute("ALTER TABLE users ADD COLUMN surname TEXT")
+    if "date_of_birth" not in cols:
+        conn.execute("ALTER TABLE users ADD COLUMN date_of_birth TEXT")
 
     conn.commit()
 
@@ -139,7 +142,7 @@ def _bootstrap_auth_once():
 def load_user(user_id):
     with _users_conn() as conn:
         row = conn.execute(
-            "SELECT id, email, name, avatar_path, is_admin, gender, first_name, middle_name, surname FROM users WHERE id = ?",
+            "SELECT id, email, name, avatar_path, is_admin, gender, first_name, middle_name, surname, date_of_birth FROM users WHERE id = ?",
             (user_id,)
         ).fetchone()
     if row:
@@ -149,7 +152,11 @@ def load_user(user_id):
             name=row["name"],
             avatar_path=row["avatar_path"],
             is_admin=row["is_admin"],
-            gender=row["gender"] if "gender" in row.keys() else None
+            gender=row["gender"] if "gender" in row.keys() else None,
+            first_name=row["first_name"] if "first_name" in row.keys() else None,
+            middle_name=row["middle_name"] if "middle_name" in row.keys() else None,
+            surname=row["surname"] if "surname" in row.keys() else None,
+            date_of_birth=row["date_of_birth"] if "date_of_birth" in row.keys() else None
         )
     return None
 
@@ -234,8 +241,16 @@ class Letter(db.Model):
         if self.sent_date and self.received_date:
             self.days = (self.received_date - self.sent_date).days
             self.is_completed = True
+            self.status = 'Completed'
         else:
             self.days = None
+            # Update status based on letter type and dates
+            if self.letter_type == 'Sending' and self.sent_date:
+                self.status = 'Sent'
+            elif self.letter_type == 'Receiving' and self.received_date:
+                self.status = 'Received'
+            elif self.status not in ['Draft', 'Sent', 'Received']:
+                self.status = 'Active'
 
 
 @event.listens_for(Letter, 'before_insert')
@@ -320,23 +335,23 @@ def delete_letter(letter_id):
 def admin_users():
     with _users_conn() as conn:
         rows = conn.execute("""
-            SELECT 
+            SELECT
                 id, name, email, avatar_path, is_admin, verified, active,
                 created_at, last_login, last_password_change
             FROM users
             ORDER BY created_at DESC
         """).fetchall()
 
-    # Count letters for each user
-    letter_counts = {}
+    # Convert rows to dicts and add letter count
+    users = []
     for r in rows:
-        cnt = Letter.query.filter_by(user_id=r["id"]).count()
-        letter_counts[r["id"]] = cnt
+        user_dict = dict(r)
+        user_dict['letter_count'] = Letter.query.filter_by(user_id=r["id"]).count()
+        users.append(user_dict)
 
     return render_template(
         "admin/users.html",
-        users=rows,
-        letter_counts=letter_counts
+        users=users
     )
 @app.route("/admin/users/add", methods=["GET", "POST"])
 @login_required
@@ -857,6 +872,14 @@ def login():
                 verify_url = url_for("verify_email", token=token, _external=True)
                 send_link_via_flash("New verification link", verify_url)
             else:
+                # Update last_login timestamp
+                with _users_conn() as conn:
+                    conn.execute(
+                        "UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?",
+                        (row["id"],)
+                    )
+                    conn.commit()
+
                 user = User(
                     row["id"],
                     row["email"],
@@ -986,14 +1009,15 @@ def profile():
         middle_name = (request.form.get("middle_name") or "").strip()
         surname = (request.form.get("surname") or "").strip()
         gender = request.form.get("gender")
+        date_of_birth = request.form.get("date_of_birth") or None
         new_pass = request.form.get("new_password") or ""
         confirm = request.form.get("confirm_password") or ""
 
-        # --- Update name fields and gender ---
+        # --- Update name fields, gender, and date of birth ---
         with _users_conn() as conn:
             conn.execute(
-                "UPDATE users SET first_name = ?, middle_name = ?, surname = ?, gender = ? WHERE id = ?",
-                (first_name, middle_name, surname, gender, current_user.id)
+                "UPDATE users SET first_name = ?, middle_name = ?, surname = ?, gender = ?, date_of_birth = ? WHERE id = ?",
+                (first_name, middle_name, surname, gender, date_of_birth, current_user.id)
             )
             conn.commit()
 
@@ -1001,6 +1025,7 @@ def profile():
         current_user.middle_name = middle_name
         current_user.surname = surname
         current_user.gender = gender
+        current_user.date_of_birth = date_of_birth
 
         # --- Update password ---
         if new_pass:
@@ -1108,17 +1133,46 @@ def autocomplete():
     return list(results)[:10]
 
 @app.route('/stats')
+@login_required
 def stats():
-    letters = Letter.query.all()
+    # Get year filter from query params
+    selected_year = request.args.get('year', type=int)
+
+    # Only get current user's letters
+    query = Letter.query.filter_by(user_id=current_user.id)
+
+    # Apply year filter if specified
+    if selected_year:
+        from sqlalchemy import extract
+        query = query.filter(
+            db.or_(
+                extract('year', Letter.sent_date) == selected_year,
+                extract('year', Letter.received_date) == selected_year
+            )
+        )
+
+    letters = query.all()
+
+    # Get all available years from user's letters
+    all_letters = Letter.query.filter_by(user_id=current_user.id).all()
+    years = set()
+    for l in all_letters:
+        if l.sent_date:
+            years.add(l.sent_date.year)
+        if l.received_date:
+            years.add(l.received_date.year)
+    available_years = sorted(years, reverse=True)
 
     total_letters = len(letters)
-    total_sent = sum(1 for l in letters if l.sent_date)
-    total_received = sum(1 for l in letters if l.received_date)
+
+    # Count by letter_type: Sending and Receiving (active only)
+    total_sending = sum(1 for l in letters if l.letter_type == 'Sending' and not l.is_completed)
+    total_receiving = sum(1 for l in letters if l.letter_type == 'Receiving' and not l.is_completed)
     total_completed = sum(1 for l in letters if l.is_completed)
 
-    # Count sending (letters without received_date) and receiving (letters with received_date)
-    total_sending = sum(1 for l in letters if not l.received_date)
-    total_receiving = sum(1 for l in letters if l.received_date)
+    # Count total by letter type (all statuses)
+    total_sent = sum(1 for l in letters if l.letter_type == 'Sending')
+    total_received = sum(1 for l in letters if l.letter_type == 'Receiving')
 
     # Count unique nicknames
     nicknames = set(l.nickname for l in letters if l.nickname)
@@ -1133,14 +1187,16 @@ def stats():
 
     return render_template('stats.html',
                          total_letters=total_letters,
-                         total_sent=total_sent,
-                         total_received=total_received,
-                         total_completed=total_completed,
                          total_sending=total_sending,
                          total_receiving=total_receiving,
+                         total_completed=total_completed,
+                         total_sent=total_sent,
+                         total_received=total_received,
                          total_nicknames=total_nicknames,
                          countries_to=countries_to,
-                         countries_from=countries_from)
+                         countries_from=countries_from,
+                         available_years=available_years,
+                         selected_year=selected_year)
 
 # ---------------------------------------------------------------------
 # Safe startup
