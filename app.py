@@ -592,7 +592,8 @@ def add():
     from_country = request.form.get('from_country') or 'Qatar'
     sent_date = parse_date(request.form.get('sent_date'))
     received_date = parse_date(request.form.get('received_date'))
-    tracking = request.form.get('tracking') or None
+    tracking_type = request.form.get('tracking_type')
+    tracking = request.form.get('tracking') if tracking_type == 'number' else 'Normal' if tracking_type == 'normal' else None
 
     # Attachment (mandatory)
     file = request.files.get('attachment')
@@ -1131,6 +1132,76 @@ def autocomplete():
             results.add(L.tracking)
 
     return list(results)[:10]
+
+@app.route('/global-stats')
+def global_stats():
+    # Get year filter from query params
+    selected_year = request.args.get('year', type=int)
+
+    # Get ALL letters from ALL users
+    query = Letter.query
+
+    # Apply year filter if specified
+    if selected_year:
+        from sqlalchemy import extract
+        query = query.filter(
+            db.or_(
+                extract('year', Letter.sent_date) == selected_year,
+                extract('year', Letter.received_date) == selected_year
+            )
+        )
+
+    letters = query.all()
+
+    # Get all available years from all letters
+    all_letters = Letter.query.all()
+    years = set()
+    for l in all_letters:
+        if l.sent_date:
+            years.add(l.sent_date.year)
+        if l.received_date:
+            years.add(l.received_date.year)
+    available_years = sorted(years, reverse=True)
+
+    # Count total users
+    with _users_conn() as conn:
+        total_users = conn.execute("SELECT COUNT(*) FROM users").fetchone()[0]
+
+    total_letters = len(letters)
+
+    # Count by letter_type: Sending and Receiving (active only)
+    total_sending = sum(1 for l in letters if l.letter_type == 'Sending' and not l.is_completed)
+    total_receiving = sum(1 for l in letters if l.letter_type == 'Receiving' and not l.is_completed)
+    total_completed = sum(1 for l in letters if l.is_completed)
+
+    # Count total by letter type (all statuses)
+    total_sent = sum(1 for l in letters if l.letter_type == 'Sending')
+    total_received = sum(1 for l in letters if l.letter_type == 'Receiving')
+
+    # Count unique nicknames
+    nicknames = set(l.nickname for l in letters if l.nickname)
+    total_nicknames = len(nicknames)
+
+    # Count by country
+    countries_to = {}
+    countries_from = {}
+    for l in letters:
+        countries_to[l.to_country] = countries_to.get(l.to_country, 0) + 1
+        countries_from[l.from_country] = countries_from.get(l.from_country, 0) + 1
+
+    return render_template('global_stats.html',
+                         total_users=total_users,
+                         total_letters=total_letters,
+                         total_sending=total_sending,
+                         total_receiving=total_receiving,
+                         total_completed=total_completed,
+                         total_sent=total_sent,
+                         total_received=total_received,
+                         total_nicknames=total_nicknames,
+                         countries_to=countries_to,
+                         countries_from=countries_from,
+                         available_years=available_years,
+                         selected_year=selected_year)
 
 @app.route('/stats')
 @login_required

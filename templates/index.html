@@ -29,8 +29,8 @@
           <div class="col-md-2">
             <label class="form-label">Type *</label>
             <select class="form-select" name="letter_type" required>
-              <option value="Sending">Sending</option>
-              <option value="Receiving">Receiving</option>
+              <option value="Sending">Send</option>
+              <option value="Receiving">Receive</option>
             </select>
           </div>
 
@@ -70,9 +70,27 @@
             <input type="date" class="form-control" name="received_date">
           </div>
 
-          <div class="col-md-4">
-            <label class="form-label">Tracking</label>
-            <input type="text" class="form-control" name="tracking" placeholder="RR... or Normal">
+          <div class="col-md-12">
+            <label class="form-label">Tracking Type</label>
+            <div class="d-flex gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="tracking_type" id="tracking_normal" value="normal" checked onchange="toggleTrackingInput()">
+                <label class="form-check-label" for="tracking_normal">
+                  Normal
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="tracking_type" id="tracking_number" value="number" onchange="toggleTrackingInput()">
+                <label class="form-check-label" for="tracking_number">
+                  Tracking No.
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-12" id="trackingNumberField" style="display: none;">
+            <label class="form-label">Tracking Number</label>
+            <input type="text" class="form-control" name="tracking" placeholder="RR123456789...">
           </div>
 
           <div class="col-md-12">
@@ -174,7 +192,15 @@
                 -
               {% endif %}
             </td>
-            <td>{% if l.tracking %}<a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>{% else %}-{% endif %}</td>
+            <td>
+              {% if l.tracking %}
+                {% if l.tracking == 'Normal' %}
+                  Normal
+                {% else %}
+                  <a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>
+                {% endif %}
+              {% else %}-{% endif %}
+            </td>
             <td class="text-center">{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}" target="_blank">📎</a>{% else %}-{% endif %}</td>
             <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit', letter_id=l.id) }}">Edit</a></td>
           </tr>
@@ -218,7 +244,15 @@
               -
             {% endif %}
           </td>
-          <td>{% if l.tracking %}<a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>{% endif %}</td>
+          <td>
+            {% if l.tracking %}
+              {% if l.tracking == 'Normal' %}
+                Normal
+              {% else %}
+                <a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>
+              {% endif %}
+            {% else %}-{% endif %}
+          </td>
           <td>{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>{% endif %}</td>
           <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit', letter_id=l.id) }}">Edit</a></td>
         </tr>
@@ -266,7 +300,15 @@
             {% endif %}
           </td>
           <td>{% if l.status == 'Draft' %}<span class="badge bg-secondary">Draft</span>{% else %}<span class="badge bg-info text-dark">Active</span>{% endif %}</td>
-          <td>{% if l.tracking %}<a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>{% endif %}</td>
+          <td>
+            {% if l.tracking %}
+              {% if l.tracking == 'Normal' %}
+                Normal
+              {% else %}
+                <a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>
+              {% endif %}
+            {% else %}-{% endif %}
+          </td>
           <td>{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>{% endif %}</td>
           <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit', letter_id=l.id) }}">Edit</a></td>
         </tr>
@@ -305,7 +347,15 @@
           <td>{{ l.name }}</td>
           <td>{{ l.to_country }}</td>
           <td>{{ l.from_country }}</td>
-          <td>{% if l.tracking %}<a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>{% else %}-{% endif %}</td>
+          <td>
+            {% if l.tracking %}
+              {% if l.tracking == 'Normal' %}
+                Normal
+              {% else %}
+                <a href="https://www.17track.net/en#nums={{ l.tracking }}" target="_blank">{{ l.tracking }}</a>
+              {% endif %}
+            {% else %}-{% endif %}
+          </td>
           <td>{% if l.attachment_path %}<a href="{{ url_for('uploaded_file', filename=l.attachment_path) }}">📎</a>{% else %}-{% endif %}</td>
           <td><a class="btn btn-sm btn-outline-primary" href="{{ url_for('edit', letter_id=l.id) }}">Edit</a></td>
         </tr>
@@ -397,6 +447,17 @@
 </div>
 
 <script>
+function toggleTrackingInput() {
+  const trackingNumberRadio = document.getElementById('tracking_number');
+  const trackingNumberField = document.getElementById('trackingNumberField');
+
+  if (trackingNumberRadio.checked) {
+    trackingNumberField.style.display = 'block';
+  } else {
+    trackingNumberField.style.display = 'none';
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   // Parse date safely
   function parseDate(str){
