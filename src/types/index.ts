@@ -24,6 +24,15 @@ export interface Letter {
   days?: number
   tracking?: string
   letter_type: 'Sending' | 'Receiving'
+  direction?: 'sending' | 'receiving'
+  to_city?: string
+  from_city?: string
+  to_zip_code?: string
+  from_zip_code?: string
+  to_address_line1?: string
+  to_address_line2?: string
+  from_address_line1?: string
+  from_address_line2?: string
   is_completed: boolean
   status: string
   attachment_url?: string

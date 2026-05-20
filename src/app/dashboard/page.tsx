@@ -6,7 +6,7 @@ import { Letter } from '@/types';
 import { STATUSES, LetterStatus } from '@/constants/statuses';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, Mail, ArrowRight, Calendar, MapPin, Search, LayoutGrid, List as ListIcon, Table as TableIcon, ChevronLeft, ChevronRight, ArrowUpDown, ChevronUp, ChevronDown, Globe, Paperclip } from 'lucide-react';
+import { Plus, Mail, ArrowRight, Calendar, MapPin, Search, LayoutGrid, List as ListIcon, Table as TableIcon, ChevronLeft, ChevronRight, ArrowUpDown, ChevronUp, ChevronDown, Globe, Paperclip, Link as LinkIcon } from 'lucide-react';
 import { format } from 'date-fns';
 
 const ITEMS_PER_PAGE = 10;

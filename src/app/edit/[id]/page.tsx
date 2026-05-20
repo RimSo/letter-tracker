@@ -75,6 +75,7 @@ export default function EditLetterPage() {
         from_address_line1: letter.from_address_line1,
         from_address_line2: letter.from_address_line2,
         letter_type: letter.letter_type,
+        direction: letter.letter_type === 'Sending' ? 'sending' : 'receiving',
         sent_date: letter.sent_date,
         received_date: letter.received_date,
         tracking: letter.tracking,
