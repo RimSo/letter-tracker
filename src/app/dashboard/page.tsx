@@ -1,18 +1,36 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Letter } from '@/types';
 import { STATUSES, LetterStatus } from '@/constants/statuses';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plus, Mail, ArrowRight, Calendar, MapPin, Search, LayoutGrid, List as ListIcon, Table as TableIcon, ChevronLeft, ChevronRight, ArrowUpDown, ChevronUp, ChevronDown, Globe, Paperclip, Link as LinkIcon } from 'lucide-react';
+import { Plus, Mail, ArrowRight, Calendar, MapPin, Search, LayoutGrid, List as ListIcon, Table as TableIcon, ChevronLeft, ChevronRight, ArrowUpDown, ChevronUp, ChevronDown, Globe, Paperclip, Link as LinkIcon, MoreVertical } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
 const ITEMS_PER_PAGE = 10;
+const COLUMN_VISIBILITY_STORAGE_KEY = 'dashboardTableColumns';
+
+type LetterRow = Letter & { sources?: { name: string } | null };
+
+const TABLE_COLUMNS = [
+  { id: 'date', label: 'Date' },
+  { id: 'nickname', label: 'Nickname' },
+  { id: 'name', label: 'Name' },
+  { id: 'where', label: 'Where' },
+  { id: 'to', label: 'To' },
+  { id: 'tracking', label: 'Tracking' },
+  { id: 'source', label: 'Source' },
+  { id: 'status', label: 'Status' },
+  { id: 'days', label: 'Days' },
+  { id: 'file', label: 'File' },
+] as const;
+
+type TableColumnId = typeof TABLE_COLUMNS[number]['id'];
 
 export default function DashboardPage() {
-  const [letters, setLetters] = useState<Letter[]>([]);
+  const [letters, setLetters] = useState<LetterRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<LetterStatus | 'All'>('All');
@@ -20,7 +38,49 @@ export default function DashboardPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState<{ key: keyof Letter | 'where'; direction: 'asc' | 'desc' } | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [visibleColumns, setVisibleColumns] = useState<Set<TableColumnId>>(
+    () => new Set(TABLE_COLUMNS.map(c => c.id))
+  );
+  const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
+  const columnMenuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(COLUMN_VISIBILITY_STORAGE_KEY);
+      if (!saved) return;
+      const validIds = new Set(TABLE_COLUMNS.map(c => c.id));
+      const parsed: TableColumnId[] = JSON.parse(saved).filter((id: string) => validIds.has(id as TableColumnId));
+      if (parsed.length > 0) setVisibleColumns(new Set(parsed));
+    } catch {
+      // ignore malformed/unavailable storage
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isColumnMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (columnMenuRef.current && !columnMenuRef.current.contains(e.target as Node)) {
+        setIsColumnMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isColumnMenuOpen]);
+
+  const toggleColumn = (id: TableColumnId) => {
+    setVisibleColumns(prev => {
+      if (prev.has(id) && prev.size === 1) return prev;
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      localStorage.setItem(COLUMN_VISIBILITY_STORAGE_KEY, JSON.stringify([...next]));
+      return next;
+    });
+  };
 
   useEffect(() => {
     async function checkUserAndFetchLetters() {
@@ -111,7 +171,7 @@ export default function DashboardPage() {
       (letter.tracking || '').toLowerCase().includes(searchLower) ||
       (letter.to_zip_code || '').toLowerCase().includes(searchLower) ||
       (letter.from_zip_code || '').toLowerCase().includes(searchLower) ||
-      ((letter as any).sources?.name || '').toLowerCase().includes(searchLower);
+      (letter.sources?.name || '').toLowerCase().includes(searchLower);
     
     const matchesStatus = statusFilter === 'All' || 
                          (statusFilter === 'Sending' && letter.direction === 'sending' && letter.status === 'Active') ||
@@ -133,7 +193,7 @@ export default function DashboardPage() {
     if (sortConfig.key === 'where') {
       aValue = a.from_country;
       bValue = b.from_country;
-    } else if (sortConfig.key === 'days' as any) {
+    } else if (sortConfig.key === 'days') {
       aValue = calculateDays(a);
       bValue = calculateDays(b);
     } else {
@@ -156,11 +216,6 @@ export default function DashboardPage() {
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
   );
-
-  // Reset to first page when search or filter changes
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, statusFilter]);
 
   const handleSort = (key: keyof Letter | 'where') => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -218,7 +273,41 @@ export default function DashboardPage() {
               <TableIcon size={20} />
             </button>
           </div>
-          <Link 
+          {viewMode === 'table' && (
+            <div className="relative" ref={columnMenuRef}>
+              <button
+                onClick={() => setIsColumnMenuOpen(prev => !prev)}
+                className={`p-2 rounded-lg border transition-colors ${
+                  isColumnMenuOpen
+                    ? 'border-brand-300 bg-brand-50 text-brand-600'
+                    : 'border-slate-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700'
+                }`}
+                title="Choose columns"
+              >
+                <MoreVertical size={20} />
+              </button>
+              {isColumnMenuOpen && (
+                <div className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-2">
+                  <p className="px-4 py-1.5 text-xs font-bold text-slate-400 uppercase tracking-wider">Columns</p>
+                  {TABLE_COLUMNS.map(col => (
+                    <label
+                      key={col.id}
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={visibleColumns.has(col.id)}
+                        onChange={() => toggleColumn(col.id)}
+                        className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                      />
+                      {col.label}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          <Link
             href="/add" 
             className="btn-primary inline-flex items-center justify-center gap-2"
           >
@@ -361,10 +450,10 @@ export default function DashboardPage() {
                       <span>Attachment included</span>
                     </div>
                   )}
-                  {(letter as any).sources?.name && (
+                  {letter.sources?.name && (
                     <div className="flex items-center text-sm text-purple-600 font-medium gap-2">
                       <LinkIcon size={16} />
-                      <span>Source: {(letter as any).sources.name}</span>
+                      <span>Source: {letter.sources.name}</span>
                     </div>
                   )}
                 </div>
@@ -450,60 +539,80 @@ export default function DashboardPage() {
           <table className="w-full text-left border-collapse min-w-[600px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
-                <th 
-                  className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left cursor-pointer hover:bg-slate-100 transition-colors"
-                  onClick={() => handleSort('sent_date')}
-                >
-                  <div className="flex items-center">Date {getSortIcon('sent_date')}</div>
-                </th>
-                <th 
-                  className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left cursor-pointer hover:bg-slate-100 transition-colors"
-                  onClick={() => handleSort('nickname')}
-                >
-                  <div className="flex items-center">Nickname {getSortIcon('nickname')}</div>
-                </th>
-                <th 
-                  className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left cursor-pointer hover:bg-slate-100 transition-colors"
-                  onClick={() => handleSort('name')}
-                >
-                  <div className="flex items-center">Name {getSortIcon('name')}</div>
-                </th>
-                <th 
-                  className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left cursor-pointer hover:bg-slate-100 transition-colors"
-                  onClick={() => handleSort('where')}
-                >
-                  <div className="flex items-center">Where {getSortIcon('where')}</div>
-                </th>
-                <th 
-                  className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left cursor-pointer hover:bg-slate-100 transition-colors"
-                  onClick={() => handleSort('to_country')}
-                >
-                  <div className="flex items-center">To {getSortIcon('to_country')}</div>
-                </th>
-                <th 
-                  className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left cursor-pointer hover:bg-slate-100 transition-colors"
-                  onClick={() => handleSort('tracking' as any)}
-                >
-                  <div className="flex items-center">Tracking {getSortIcon('tracking' as any)}</div>
-                </th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left">
-                  Source
-                </th>
-                <th 
-                  className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left cursor-pointer hover:bg-slate-100 transition-colors"
-                  onClick={() => handleSort('status')}
-                >
-                  <div className="flex items-center">Status {getSortIcon('status')}</div>
-                </th>
-                <th 
-                  className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left cursor-pointer hover:bg-slate-100 transition-colors"
-                  onClick={() => handleSort('days' as any)}
-                >
-                  <div className="flex items-center">Days {getSortIcon('days' as any)}</div>
-                </th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">
-                  File
-                </th>
+                {visibleColumns.has('date') && (
+                  <th
+                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort('sent_date')}
+                  >
+                    <div className="flex items-center">Date {getSortIcon('sent_date')}</div>
+                  </th>
+                )}
+                {visibleColumns.has('nickname') && (
+                  <th
+                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort('nickname')}
+                  >
+                    <div className="flex items-center">Nickname {getSortIcon('nickname')}</div>
+                  </th>
+                )}
+                {visibleColumns.has('name') && (
+                  <th
+                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort('name')}
+                  >
+                    <div className="flex items-center">Name {getSortIcon('name')}</div>
+                  </th>
+                )}
+                {visibleColumns.has('where') && (
+                  <th
+                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort('where')}
+                  >
+                    <div className="flex items-center">Where {getSortIcon('where')}</div>
+                  </th>
+                )}
+                {visibleColumns.has('to') && (
+                  <th
+                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort('to_country')}
+                  >
+                    <div className="flex items-center">To {getSortIcon('to_country')}</div>
+                  </th>
+                )}
+                {visibleColumns.has('tracking') && (
+                  <th
+                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort('tracking')}
+                  >
+                    <div className="flex items-center">Tracking {getSortIcon('tracking')}</div>
+                  </th>
+                )}
+                {visibleColumns.has('source') && (
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left">
+                    Source
+                  </th>
+                )}
+                {visibleColumns.has('status') && (
+                  <th
+                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort('status')}
+                  >
+                    <div className="flex items-center">Status {getSortIcon('status')}</div>
+                  </th>
+                )}
+                {visibleColumns.has('days') && (
+                  <th
+                    className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-left cursor-pointer hover:bg-slate-100 transition-colors"
+                    onClick={() => handleSort('days')}
+                  >
+                    <div className="flex items-center">Days {getSortIcon('days')}</div>
+                  </th>
+                )}
+                {visibleColumns.has('file') && (
+                  <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-center">
+                    File
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -513,68 +622,92 @@ export default function DashboardPage() {
                   onClick={() => router.push(`/edit/${letter.id}`)}
                   className="hover:bg-slate-50/50 cursor-pointer transition-colors group"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-left">
-                    {letter.sent_date ? format(new Date(letter.sent_date), 'MMM d, yyyy') : 'Draft'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 text-left">
-                    {letter.nickname || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-left">
-                    {letter.name || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-left">
-                    {letter.from_country}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-left">
-                    {letter.to_country}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-left">
-                    {letter.tracking ? (
-                      <a 
-                        href={`https://t.17track.net/en#nums=${letter.tracking}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-brand-600 hover:underline flex items-center gap-1"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {letter.tracking}
-                        <Globe size={12} />
-                      </a>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-left">
-                    {(letter as any).sources?.name || '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-left">
-                    <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
-                      letter.is_completed 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-amber-100 text-amber-700'
-                    }`}>
-                      {letter.status === 'Active' 
-                        ? (letter.direction === 'sending' ? 'Sending' : 'Receiving') 
-                        : letter.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-left text-sm">
-                    {(() => {
-                      const days = calculateDays(letter);
-                      return (
-                        <span className={getDaysColor(days)}>
-                          {days !== null ? `${days} days` : '-'}
-                        </span>
-                      );
-                    })()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center text-slate-400">
-                    {letter.attachment_url ? (
-                      <Paperclip size={18} className="mx-auto text-brand-600" />
-                    ) : (
-                      '-'
-                    )}
-                  </td>
+                  {visibleColumns.has('date') && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-left">
+                      {letter.sent_date
+                        ? format(new Date(letter.sent_date), 'MMM d, yyyy')
+                        : letter.received_date
+                          ? `${format(new Date(letter.received_date), 'MMM d, yyyy')} (received)`
+                          : 'Draft'}
+                    </td>
+                  )}
+                  {visibleColumns.has('nickname') && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900 text-left">
+                      {letter.nickname || '-'}
+                    </td>
+                  )}
+                  {visibleColumns.has('name') && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-left">
+                      {letter.name || '-'}
+                    </td>
+                  )}
+                  {visibleColumns.has('where') && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-left">
+                      {letter.from_country}
+                    </td>
+                  )}
+                  {visibleColumns.has('to') && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-left">
+                      {letter.to_country}
+                    </td>
+                  )}
+                  {visibleColumns.has('tracking') && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-left">
+                      {letter.tracking ? (
+                        <a
+                          href={`https://t.17track.net/en#nums=${letter.tracking}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-brand-600 hover:underline flex items-center gap-1"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {letter.tracking}
+                          <Globe size={12} />
+                        </a>
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                  )}
+                  {visibleColumns.has('source') && (
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600 text-left">
+                      {letter.sources?.name || '-'}
+                    </td>
+                  )}
+                  {visibleColumns.has('status') && (
+                    <td className="px-6 py-4 whitespace-nowrap text-left">
+                      <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                        letter.is_completed
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {letter.status === 'Active'
+                          ? (letter.direction === 'sending' ? 'Sending' : 'Receiving')
+                          : letter.status}
+                      </span>
+                    </td>
+                  )}
+                  {visibleColumns.has('days') && (
+                    <td className="px-6 py-4 whitespace-nowrap text-left text-sm">
+                      {(() => {
+                        const days = calculateDays(letter);
+                        return (
+                          <span className={getDaysColor(days)}>
+                            {days !== null ? `${days} days` : '-'}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                  )}
+                  {visibleColumns.has('file') && (
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-slate-400">
+                      {letter.attachment_url ? (
+                        <Paperclip size={18} className="mx-auto text-brand-600" />
+                      ) : (
+                        '-'
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

@@ -33,6 +33,7 @@ export default function ProfilePage() {
     name: '',
     link: ''
   });
+  const [activeTab, setActiveTab] = useState<'addresses' | 'sources'>('addresses');
   const router = useRouter();
 
   useEffect(() => {
@@ -57,41 +58,6 @@ export default function ProfilePage() {
       setLoading(false);
     }
 
-    async function fetchAddresses() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const { data, error } = await supabase
-        .from('addresses')
-        .select('*')
-        .order('is_default', { ascending: false })
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching addresses:', error.message || error);
-      } else {
-        setAddresses(data || []);
-      }
-      setAddressLoading(false);
-    }
-
-    async function fetchSources() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const { data, error } = await supabase
-        .from('sources')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching sources:', error.message || error);
-      } else {
-        setSources(data || []);
-      }
-      setSourcesLoading(false);
-    }
-
     fetchProfile();
     fetchAddresses();
     fetchSources();
@@ -109,7 +75,8 @@ export default function ProfilePage() {
       if (!session) throw new Error('No session');
 
       const file = event.target.files[0];
-      const fileExt = file.name.split('.').pop();
+      const rawExt = file.name.split('.').pop()?.toLowerCase() || '';
+      const fileExt = /^(png|jpe?g|gif|webp|svg)$/.test(rawExt) ? rawExt : 'png';
       const filePath = `${session.user.id}/${Math.random()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
@@ -208,7 +175,8 @@ export default function ProfilePage() {
           zip_code: newAddress.zip_code,
           is_default: newAddress.is_default
         })
-        .eq('id', editingAddressId);
+        .eq('id', editingAddressId)
+        .eq('user_id', session.user.id);
 
       if (error) {
         alert(error.message);
@@ -269,14 +237,21 @@ export default function ProfilePage() {
   };
 
   const fetchSources = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
     const { data, error } = await supabase
       .from('sources')
       .select('*')
+      .eq('user_id', session.user.id)
       .order('created_at', { ascending: false });
 
-    if (!error) {
+    if (error) {
+      console.error('Error fetching sources:', error.message || error);
+    } else {
       setSources(data || []);
     }
+    setSourcesLoading(false);
   };
 
   const handleAddSource = async (e: React.FormEvent) => {
@@ -291,7 +266,8 @@ export default function ProfilePage() {
           name: newSource.name,
           link: newSource.link
         })
-        .eq('id', editingSourceId);
+        .eq('id', editingSourceId)
+        .eq('user_id', session.user.id);
 
       if (error) {
         alert(error.message);
@@ -338,10 +314,14 @@ export default function ProfilePage() {
   const handleDeleteSource = async (id: number) => {
     if (!confirm('Are you sure you want to delete this source?')) return;
 
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
     const { error } = await supabase
       .from('sources')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', session.user.id);
 
     if (error) {
       alert(error.message);
@@ -372,15 +352,22 @@ export default function ProfilePage() {
   };
 
   const fetchAddresses = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
     const { data, error } = await supabase
       .from('addresses')
       .select('*')
+      .eq('user_id', session.user.id)
       .order('is_default', { ascending: false })
       .order('created_at', { ascending: false });
 
-    if (!error) {
+    if (error) {
+      console.error('Error fetching addresses:', error.message || error);
+    } else {
       setAddresses(data || []);
     }
+    setAddressLoading(false);
   };
 
   const handleEditAddress = (address: Address) => {
@@ -399,10 +386,14 @@ export default function ProfilePage() {
   const handleDeleteAddress = async (id: number) => {
     if (!confirm('Are you sure you want to delete this address?')) return;
 
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
     const { error } = await supabase
       .from('addresses')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', session.user.id);
 
     if (error) {
       alert(error.message);
@@ -567,14 +558,47 @@ export default function ProfilePage() {
           </form>
 
           {/* Addresses Section */}
-          <div className="mt-12 space-y-6">
+          <div className="mt-12">
+            <div className="flex items-center gap-2 border-b border-slate-200 mb-6">
+              <button
+                onClick={() => setActiveTab('addresses')}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                  activeTab === 'addresses'
+                    ? 'border-brand-600 text-brand-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <MapPin size={16} />
+                Addresses
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === 'addresses' ? 'bg-brand-100 text-brand-700' : 'bg-slate-100 text-slate-500'}`}>
+                  {addresses.length}
+                </span>
+              </button>
+              <button
+                onClick={() => setActiveTab('sources')}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 -mb-px transition-colors ${
+                  activeTab === 'sources'
+                    ? 'border-brand-600 text-brand-600'
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                <LinkIcon size={16} />
+                Sources
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTab === 'sources' ? 'bg-brand-100 text-brand-700' : 'bg-slate-100 text-slate-500'}`}>
+                  {sources.length}
+                </span>
+              </button>
+            </div>
+
+          {activeTab === 'addresses' && (
+            <div className="space-y-6">
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
                 <MapPin className="text-brand-600" size={24} />
                 My Addresses
               </h3>
               {!isAddingAddress && (
-                <button 
+                <button
                   onClick={() => setIsAddingAddress(true)}
                   className="btn-secondary py-2 flex items-center gap-2"
                 >
@@ -744,9 +768,11 @@ export default function ProfilePage() {
                 ))
               )}
             </div>
-          </div>
+            </div>
+          )}
 
-          <div className="card p-8 space-y-6">
+          {activeTab === 'sources' && (
+          <div className="space-y-6">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
@@ -867,6 +893,8 @@ export default function ProfilePage() {
                 ))
               )}
             </div>
+          </div>
+          )}
           </div>
         </div>
       </div>
