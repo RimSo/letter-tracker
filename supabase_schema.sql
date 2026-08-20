@@ -85,6 +85,52 @@ CREATE POLICY "Admins can view all profiles" ON public.profiles
 CREATE POLICY "Admins can view all letters" ON public.letters
   FOR SELECT USING (auth.uid() = user_id OR public.is_admin());
 
+-- The admin panel (src/app/admin/page.tsx) updates/deletes any user's
+-- profile and deletes any user's letters. Those actions need explicit
+-- admin write policies, since the "own row" policies above don't cover them.
+DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
+CREATE POLICY "Admins can update all profiles" ON public.profiles
+  FOR UPDATE USING (public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can delete profiles" ON public.profiles;
+CREATE POLICY "Admins can delete profiles" ON public.profiles
+  FOR DELETE USING (public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can delete letters" ON public.letters;
+CREATE POLICY "Admins can delete letters" ON public.letters
+  FOR DELETE USING (public.is_admin());
+
+-- Site settings (logo, favicon, footer text) shown to all visitors via
+-- src/app/layout.tsx and src/components/layout/Navbar.tsx, and edited from
+-- the admin panel. This table existed in the live project but was missing
+-- from this schema file.
+CREATE TABLE IF NOT EXISTS public.settings (
+  id TEXT PRIMARY KEY DEFAULT 'global',
+  logo_url TEXT,
+  favicon_url TEXT,
+  title TEXT,
+  description TEXT,
+  footer_text TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can view settings" ON public.settings;
+CREATE POLICY "Anyone can view settings" ON public.settings
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Admins can update settings" ON public.settings;
+CREATE POLICY "Admins can update settings" ON public.settings
+  FOR UPDATE USING (public.is_admin());
+
+DROP POLICY IF EXISTS "Admins can insert settings" ON public.settings;
+CREATE POLICY "Admins can insert settings" ON public.settings
+  FOR INSERT WITH CHECK (public.is_admin());
+
+INSERT INTO public.settings (id) VALUES ('global')
+  ON CONFLICT (id) DO NOTHING;
+
 -- Function to handle new user signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$

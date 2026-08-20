@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { Mail, ArrowLeft, Send, Save, Loader2, Globe, Calendar, Tag, MapPin, CheckCircle2, Upload, FileText, X, Link as LinkIcon } from 'lucide-react';
+import { Mail, ArrowLeft, Send, Inbox, Save, Loader2, Tag, MapPin, CheckCircle2, Upload, FileText, X } from 'lucide-react';
 import { COUNTRIES } from '@/constants/countries';
 import { STATUSES } from '@/constants/statuses';
 
@@ -254,7 +254,7 @@ export default function AddLetterPage() {
         </button>
       </div>
 
-      <div className="flex items-center gap-4 mb-8">
+      <div className="flex items-center gap-4 mb-6">
         <div className="bg-brand-600 p-3 rounded-2xl text-white shadow-lg shadow-brand-600/20">
           <Mail size={28} />
         </div>
@@ -265,15 +265,45 @@ export default function AddLetterPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Direction: the key choice that drives every field below, so it leads the form */}
+        <div className="card p-2 grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => handleDirectionChange('Sending')}
+            aria-pressed={letterType === 'Sending'}
+            className={`flex items-center justify-center gap-2.5 rounded-xl py-3.5 font-semibold transition-all duration-200 ${
+              letterType === 'Sending'
+                ? 'bg-brand-600 text-white shadow-md shadow-brand-600/20'
+                : 'text-slate-500 hover:bg-slate-50'
+            }`}
+          >
+            <Send size={18} />
+            I am sending this
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDirectionChange('Receiving')}
+            aria-pressed={letterType === 'Receiving'}
+            className={`flex items-center justify-center gap-2.5 rounded-xl py-3.5 font-semibold transition-all duration-200 ${
+              letterType === 'Receiving'
+                ? 'bg-brand-600 text-white shadow-md shadow-brand-600/20'
+                : 'text-slate-500 hover:bg-slate-50'
+            }`}
+          >
+            <Inbox size={18} />
+            I am receiving this
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column: Basic Info & Direction */}
+          {/* Left Column: Basic Info */}
           <div className="lg:col-span-1 space-y-6">
             <div className="card p-6 h-full">
-              <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+              <h3 className="text-lg font-bold text-slate-900 mb-5 flex items-center gap-2">
                 <Tag size={18} className="text-brand-600" />
                 Basic Info
               </h3>
-              
+
               <div className="space-y-4">
                 <div>
                   <label htmlFor="name" className="label-base">Name</label>
@@ -298,18 +328,6 @@ export default function AddLetterPage() {
                     onChange={(e) => setNickname(e.target.value)}
                   />
                 </div>
-                <div className="pt-4 border-t border-slate-100">
-                  <label htmlFor="letterType" className="label-base text-brand-700 font-bold">Direction</label>
-                  <select
-                    id="letterType"
-                    className="w-full input-base border-brand-200 focus:border-brand-500 focus:ring-brand-500"
-                    value={letterType}
-                    onChange={(e) => handleDirectionChange(e.target.value as 'Sending' | 'Receiving')}
-                  >
-                    <option value="Sending">I am sending this</option>
-                    <option value="Receiving">I am receiving this</option>
-                  </select>
-                </div>
               </div>
             </div>
           </div>
@@ -317,19 +335,15 @@ export default function AddLetterPage() {
           {/* Middle Column: Addresses */}
           <div className="lg:col-span-2 space-y-6">
             <div className="card p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <MapPin size={18} className="text-brand-600" />
-                  Logistics & Address
-                </h3>
-              </div>
+              <h3 className="text-lg font-bold text-slate-900 mb-5 flex items-center gap-2">
+                <MapPin size={18} className="text-brand-600" />
+                Logistics & Address
+              </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 {/* My Address Selection */}
-                <div className="space-y-4">
-                  <div className="h-6 flex items-center">
-                    <label htmlFor="myAddress" className="label-base font-semibold mb-0">My Address</label>
-                  </div>
+                <div>
+                  <label htmlFor="myAddress" className="label-base">My Address</label>
                   <select
                     id="myAddress"
                     className="w-full input-base bg-slate-50"
@@ -343,16 +357,14 @@ export default function AddLetterPage() {
                       </option>
                     ))}
                   </select>
-                  <p className="text-xs text-slate-500 italic">This address will be used as the "{letterType === 'Sending' ? 'From' : 'To'}" field.</p>
+                  <p className="text-xs text-slate-400 mt-1.5">Used as the "{letterType === 'Sending' ? 'From' : 'To'}" field.</p>
                 </div>
 
                 {/* Other Side Address - Country */}
-                <div className="space-y-4">
-                  <div className="h-6 flex items-center">
-                    <label htmlFor="toCountry" className="label-base font-semibold mb-0">
-                      {letterType === 'Sending' ? 'Recipient Country' : 'Sender Country'}
-                    </label>
-                  </div>
+                <div>
+                  <label htmlFor="toCountry" className="label-base">
+                    {letterType === 'Sending' ? 'Recipient Country' : 'Sender Country'}
+                  </label>
                   <select
                     id="toCountry"
                     required
@@ -365,111 +377,100 @@ export default function AddLetterPage() {
                       <option key={`country-${country}`} value={country}>{country}</option>
                     ))}
                   </select>
-                  <p className="text-xs text-slate-500 italic">Choose the country for the {letterType === 'Sending' ? 'recipient' : 'sender'}.</p>
+                  <p className="text-xs text-slate-400 mt-1.5">Country for the {letterType === 'Sending' ? 'recipient' : 'sender'}.</p>
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-slate-100">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start mb-6">
-                  {/* Source Selection */}
-                  <div className="space-y-4">
-                    <div className="h-6 flex items-center">
-                      <label htmlFor="source" className="label-base font-semibold mb-0">Purchase Source (Optional)</label>
-                    </div>
-                    <div className="flex gap-2">
-                      <select
-                        id="source"
-                        className="w-full input-base"
-                        value={selectedSourceId}
-                        onChange={(e) => setSelectedSourceId(e.target.value)}
-                      >
-                        <option value="">Select source</option>
-                        {sources.map(source => (
-                          <option key={source.id} value={source.id}>
-                            {source.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <p className="text-xs text-slate-500 italic">e.g. eBay, Amazon, LastSticker</p>
-                  </div>
+              <div className="pt-5 border-t border-slate-100 space-y-4">
+                <div>
+                  <label htmlFor="addressLine1" className="label-base">Address Line 1</label>
+                  <input
+                    id="addressLine1"
+                    type="text"
+                    placeholder="Street address, P.O. box"
+                    className="w-full input-base"
+                    value={letterType === 'Sending' ? toAddressLine1 : fromAddressLine1}
+                    onChange={(e) => {
+                      if (letterType === 'Sending') {
+                        setToAddressLine1(e.target.value);
+                      } else {
+                        setFromAddressLine1(e.target.value);
+                      }
+                    }}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="addressLine2" className="label-base">Address Line 2 (Optional)</label>
+                  <input
+                    id="addressLine2"
+                    type="text"
+                    placeholder="Apartment, suite, etc."
+                    className="w-full input-base"
+                    value={letterType === 'Sending' ? toAddressLine2 : fromAddressLine2}
+                    onChange={(e) => {
+                      if (letterType === 'Sending') {
+                        setToAddressLine2(e.target.value);
+                      } else {
+                        setFromAddressLine2(e.target.value);
+                      }
+                    }}
+                  />
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="city" className="label-base">City</label>
-                      <input
-                        id="city"
-                        type="text"
-                        placeholder="City"
-                        className="w-full input-base"
-                        value={letterType === 'Sending' ? toCity : fromCity}
-                        onChange={(e) => {
-                          if (letterType === 'Sending') {
-                            setToCity(e.target.value);
-                          } else {
-                            setFromCity(e.target.value);
-                          }
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="zipCode" className="label-base">Zip Code</label>
-                      <input
-                        id="zipCode"
-                        type="text"
-                        placeholder="Zip Code"
-                        className="w-full input-base"
-                        value={letterType === 'Sending' ? toZipCode : fromZipCode}
-                        onChange={(e) => {
-                          if (letterType === 'Sending') {
-                            setToZipCode(e.target.value);
-                          } else {
-                            setFromZipCode(e.target.value);
-                          }
-                        }}
-                      />
-                    </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor="city" className="label-base">City</label>
+                    <input
+                      id="city"
+                      type="text"
+                      placeholder="City"
+                      className="w-full input-base"
+                      value={letterType === 'Sending' ? toCity : fromCity}
+                      onChange={(e) => {
+                        if (letterType === 'Sending') {
+                          setToCity(e.target.value);
+                        } else {
+                          setFromCity(e.target.value);
+                        }
+                      }}
+                    />
                   </div>
-
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="addressLine1" className="label-base">Address Line 1</label>
-                      <input
-                        id="addressLine1"
-                        type="text"
-                        placeholder="Street address, P.O. box"
-                        className="w-full input-base"
-                        value={letterType === 'Sending' ? toAddressLine1 : fromAddressLine1}
-                        onChange={(e) => {
-                          if (letterType === 'Sending') {
-                            setToAddressLine1(e.target.value);
-                          } else {
-                            setFromAddressLine1(e.target.value);
-                          }
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="addressLine2" className="label-base">Address Line 2 (Optional)</label>
-                      <input
-                        id="addressLine2"
-                        type="text"
-                        placeholder="Apartment, suite, etc."
-                        className="w-full input-base"
-                        value={letterType === 'Sending' ? toAddressLine2 : fromAddressLine2}
-                        onChange={(e) => {
-                          if (letterType === 'Sending') {
-                            setToAddressLine2(e.target.value);
-                          } else {
-                            setFromAddressLine2(e.target.value);
-                          }
-                        }}
-                      />
-                    </div>
+                  <div>
+                    <label htmlFor="zipCode" className="label-base">Zip Code</label>
+                    <input
+                      id="zipCode"
+                      type="text"
+                      placeholder="Zip Code"
+                      className="w-full input-base"
+                      value={letterType === 'Sending' ? toZipCode : fromZipCode}
+                      onChange={(e) => {
+                        if (letterType === 'Sending') {
+                          setToZipCode(e.target.value);
+                        } else {
+                          setFromZipCode(e.target.value);
+                        }
+                      }}
+                    />
                   </div>
                 </div>
+              </div>
+
+              <div className="pt-5 mt-5 border-t border-slate-100">
+                <label htmlFor="source" className="label-base">Purchase Source (Optional)</label>
+                <select
+                  id="source"
+                  className="w-full input-base md:max-w-xs"
+                  value={selectedSourceId}
+                  onChange={(e) => setSelectedSourceId(e.target.value)}
+                >
+                  <option value="">Select source</option>
+                  {sources.map(source => (
+                    <option key={source.id} value={source.id}>
+                      {source.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-400 mt-1.5">e.g. eBay, Amazon, LastSticker</p>
               </div>
             </div>
           </div>
@@ -477,7 +478,7 @@ export default function AddLetterPage() {
           {/* Bottom row: Attachment and Status */}
           <div className="lg:col-span-1 space-y-6">
             <div className="card p-6 h-full">
-              <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+              <h3 className="text-lg font-bold text-slate-900 mb-5 flex items-center gap-2">
                 <FileText size={18} className="text-brand-600" />
                 Attachment
               </h3>
@@ -528,7 +529,7 @@ export default function AddLetterPage() {
 
           <div className="lg:col-span-2 space-y-6">
             <div className="card p-6">
-              <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
+              <h3 className="text-lg font-bold text-slate-900 mb-5 flex items-center gap-2">
                 <CheckCircle2 size={18} className="text-brand-600" />
                 Status & Timeline
               </h3>
