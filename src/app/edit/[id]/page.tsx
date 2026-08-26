@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useParams } from 'next/navigation';
 import { Letter } from '@/types';
-import { Mail, ArrowLeft, Trash2, Save, Loader2, Globe, Calendar, Tag, CheckCircle2, Upload, FileText, X, Link as LinkIcon } from 'lucide-react';
+import { Mail, ArrowLeft, Trash2, Copy, Save, Loader2, Globe, Calendar, Tag, CheckCircle2, Upload, FileText, X, Link as LinkIcon } from 'lucide-react';
 import { COUNTRIES } from '@/constants/countries';
 import { STATUSES } from '@/constants/statuses';
 
@@ -12,6 +12,7 @@ export default function EditLetterPage() {
   const { id } = useParams();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [letter, setLetter] = useState<Partial<Letter>>({});
   const [uploading, setUploading] = useState(false);
   const [sources, setSources] = useState<any[]>([]);
@@ -127,6 +128,54 @@ export default function EditLetterPage() {
     }
   };
 
+  const handleDuplicate = async () => {
+    setDuplicating(true);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      router.push('/login');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('letters')
+      .insert({
+        user_id: session.user.id,
+        name: letter.name,
+        nickname: letter.nickname,
+        to_country: letter.to_country,
+        to_city: letter.to_city,
+        to_zip_code: letter.to_zip_code,
+        to_address_line1: letter.to_address_line1,
+        to_address_line2: letter.to_address_line2,
+        from_country: letter.from_country,
+        from_city: letter.from_city,
+        from_zip_code: letter.from_zip_code,
+        from_address_line1: letter.from_address_line1,
+        from_address_line2: letter.from_address_line2,
+        letter_type: letter.letter_type,
+        direction: letter.letter_type === 'Sending' ? 'sending' : 'receiving',
+        sent_date: null,
+        received_date: null,
+        tracking: '',
+        status: 'Draft',
+        attachment_url: null,
+        source_id: letter.source_id ?? null,
+        is_completed: false,
+      })
+      .select('id')
+      .single();
+
+    if (error) {
+      alert(error.message);
+      setDuplicating(false);
+    } else {
+      setDuplicating(false);
+      setLoading(true);
+      router.push(`/edit/${data.id}`);
+    }
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       setUploading(true);
@@ -218,13 +267,25 @@ export default function EditLetterPage() {
           <span className="font-medium">Back to dashboard</span>
         </button>
         
-        <button
-          onClick={handleDelete}
-          className="flex items-center gap-2 text-red-500 hover:text-red-700 font-semibold transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50"
-        >
-          <Trash2 size={18} />
-          <span>Delete</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleDuplicate}
+            disabled={duplicating}
+            className="flex items-center gap-2 text-slate-500 hover:text-brand-600 font-semibold transition-colors px-3 py-1.5 rounded-lg hover:bg-brand-50 disabled:opacity-50"
+            title="Create a Draft copy of this letter"
+          >
+            {duplicating ? <Loader2 size={18} className="animate-spin" /> : <Copy size={18} />}
+            <span>Duplicate</span>
+          </button>
+
+          <button
+            onClick={handleDelete}
+            className="flex items-center gap-2 text-red-500 hover:text-red-700 font-semibold transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50"
+          >
+            <Trash2 size={18} />
+            <span>Delete</span>
+          </button>
+        </div>
       </div>
 
       <div className="flex items-center gap-4 mb-8">
